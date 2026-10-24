@@ -5,13 +5,13 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"github.com/hinshun/vt10x"
+	"ananta/internal/vt"
 
 	"ananta/internal/pane"
 	"ananta/internal/screen"
 )
 
-func mapColor(c vt10x.Color) screen.Col {
+func mapColor(c vt.Color) screen.Col {
 	switch {
 	case c >= 1<<24:
 		return screen.ColDefault
@@ -21,7 +21,7 @@ func mapColor(c vt10x.Color) screen.Col {
 	return screen.Col(screen.TrueBit | int32(c&0xffffff))
 }
 
-func glyphCell(g vt10x.Glyph) screen.Cell {
+func glyphCell(g vt.Glyph) screen.Cell {
 	c := screen.Cell{R: g.Char, FG: mapColor(g.FG), BG: mapColor(g.BG)}
 	if c.R == 0 {
 		c.R = ' '
@@ -106,18 +106,21 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 	p.Term.Lock()
 	title := p.Term.Title()
 	tcols, trows := p.Term.Size()
+	v := viewLocked(p)
+	top := viewTop(p, v)
 	if !thumb {
 		for row := 0; row < ih; row++ {
+			ly := top + row
+			line := p.Term.Row(v.vtRow(ly))
 			for col := 0; col < iw; col++ {
-				if col >= tcols || row >= trows {
-					scr.Set(x+1+col, y+1+row, screen.Blank)
-					continue
+				c := screen.Blank
+				if col < len(line) && col < tcols {
+					c = glyphCell(line[col])
 				}
-				c := glyphCell(p.Term.Cell(col, row))
-				if ov.sel != nil && ov.sel.Contains(col, row) {
+				if ov.sel != nil && ov.sel.Contains(col, ly) {
 					c.FG, c.BG, c.A = m.th.selFG, m.th.selBG, c.A&^screen.AttrReverse
 				}
-				if ov.hasCur && col == ov.cx && row == ov.cy {
+				if ov.hasCur && col == ov.cx && ly == ov.cy {
 					c.FG, c.BG, c.A = m.th.statusBG, m.th.accent, c.A&^screen.AttrReverse
 				}
 				scr.Set(x+1+col, y+1+row, c)
@@ -162,7 +165,10 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 			scr.Text(x+2, y, " "+t+" ", tc, screen.ColDefault, ta)
 		}
 	}
-	if !thumb && focused && visible && m.cm == nil && cur.X < iw && cur.Y < ih && cur.X < tcols && cur.Y < trows {
+	if !thumb && p.Anchored && w > 14 {
+		scr.Text(x+w-9, y, fmt.Sprintf(" ↑%d ", v.hist-top), tc, screen.ColDefault, ta)
+	}
+	if !thumb && focused && visible && m.cm == nil && !p.Anchored && cur.X < iw && cur.Y < ih && cur.X < tcols && cur.Y < trows {
 		return x + 1 + cur.X, y + 1 + cur.Y, true
 	}
 	return

@@ -90,7 +90,7 @@ func (m *Mux) newColumnFor(ws *Workspace, p *pane.Pane) {
 func (m *Mux) spawn(cmdline string) (*pane.Pane, error) {
 	m.nextID++
 	w := int(m.cfg.DefaultColumnWidth*float64(m.W)) - 2
-	return pane.New(m.nextID, m.cfg.Shell, cmdline, w, m.tileH()-2, m.dirty, m.exits)
+	return pane.New(m.nextID, m.cfg.Shell, cmdline, w, m.tileH()-2, m.cfg.ScrollbackLines, m.dirty, m.exits)
 }
 
 func (m *Mux) newPane(cmdline string) {

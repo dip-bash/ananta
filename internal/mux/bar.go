@@ -78,6 +78,12 @@ func (m *Mux) widget(name string, snap stats.Snapshot, now time.Time) []seg {
 		tag := func(s string) {
 			out = append(out, seg{text: " " + s + " ", fg: m.th.statusBG, bg: m.th.accent, attr: screen.AttrBold, tab: -1})
 		}
+		if p := m.focusedPane(); p != nil && m.cm == nil {
+			if n := linesAbove(p); n > 0 {
+				tag(fmt.Sprintf("↑%d", n))
+				out = append(out, m.plain(" type or shift+pgdn to return"))
+			}
+		}
 		switch {
 		case m.cm != nil:
 			tag(m.cm.label())

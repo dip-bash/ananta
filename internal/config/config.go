@@ -72,6 +72,7 @@ type Config struct {
 	ColumnWidths       []float64         `toml:"column_widths"`
 	DefaultColumnWidth float64           `toml:"default_column_width"`
 	ResizeStep         float64           `toml:"resize_step"`
+	ScrollbackLines    int               `toml:"scrollback_lines"`
 	QuitOnLastExit     bool              `toml:"quit_on_last_exit"`
 	Prefix             string            `toml:"prefix"`
 	Bar                Bar               `toml:"bar"`
@@ -175,6 +176,9 @@ func (cfg *Config) compile() {
 	if cfg.DefaultColumnWidth <= 0 || cfg.DefaultColumnWidth > 1 {
 		cfg.DefaultColumnWidth = 0.5
 	}
+	if cfg.ScrollbackLines < 0 {
+		cfg.ScrollbackLines = 0
+	}
 	if cfg.OverviewScale < 0.15 || cfg.OverviewScale > 0.6 {
 		cfg.OverviewScale = 0.3
 	}
@@ -225,4 +229,20 @@ func decodeInto(cfg *Config, text string) error {
 		cfg.compile()
 	}
 	return err
+}
+
+// TermModes returns the escape sequences that put the user's terminal into
+// the state ananta needs (alt screen, mouse, kitty keyboard) and undo it.
+func (c *Config) TermModes() (setup, teardown string) {
+	setup = "\x1b[?1049h\x1b[?25l"
+	teardown = "\x1b[0m\x1b[?25h\x1b[?1049l"
+	if c.Mouse {
+		setup += "\x1b[?1002h\x1b[?1006h"
+		teardown = "\x1b[?1006l\x1b[?1002l" + teardown
+	}
+	if c.UseKitty() {
+		setup += "\x1b[>5u"
+		teardown = "\x1b[<u" + teardown
+	}
+	return
 }

@@ -3,25 +3,58 @@
 A scrollable tiling terminal multiplexer in Go (niri / PaperWM style). Panes
 live in columns on an endless horizontal strip; focusing a column glides the
 viewport to it. Square borders, animated scrolling and zoom, overview,
-configurable status bar, mouse, vim-style copy mode.
+configurable status bar, mouse, per-pane scrollback, vim-style copy mode and
+tmux-style persistent sessions (detach / reattach).
 
 ## Build
 
     go mod tidy
     make build              # or: go build -o ananta ./cmd/ananta
     ./ananta --init         # writes ~/.config/ananta/config.toml
-    ./ananta
+    ./ananta                # attach to session "main" (created on first use)
 
 `./ananta --print-config` prints every option with comments.
+
+## Sessions (detach / reattach)
+
+A background server owns every pane, so your programs keep running when the
+terminal closes or SSH drops. The terminal you type in is just a client.
+
+    ananta                 attach to session "main" (creating it if needed)
+    ananta -s work         ... or any other name
+    ananta new work        create + attach (errors if it exists)
+    ananta attach work     attach to an existing session
+    ananta ls              list sessions (panes, attached / detached)
+    ananta kill work       end a session and everything in it
+    ananta local           no background session; closing the terminal ends it
+
+Detach with `leader+d` (alt+d); attaching from a second terminal takes the
+session over (and re-lays it out for the new size). `leader+Q` ends the session.
+Sockets and server logs live in `$XDG_RUNTIME_DIR/ananta-<uid>/` (or the temp
+dir). The server reads the config when it starts: restart the session to apply
+config changes. Panes started later inherit the environment the server was
+launched with (as in tmux), so e.g. a changed SSH_AUTH_SOCK is not picked up.
+
+## Scrollback
+
+Every pane keeps `scrollback_lines` (default 10000) of history, including long
+output such as `tree`. Scroll with the mouse wheel, `shift+pageup` /
+`shift+pagedown`, or copy mode (`alt+a`, then `gg`, `ctrl+u`, `G` and the other
+vim motions work across the whole history). Typing jumps back to the live
+screen. Dragging a selection past the top/bottom edge auto-scrolls. Full-screen
+apps (vim, less) use the alternate screen and have no history, as in other
+terminals; the wheel sends them arrow keys instead.
 
 ## Project layout
 
     cmd/ananta/main.go      flags, config loading, starts the app
-    internal/app/           terminal setup (raw mode, alt screen, mouse/kitty), signals
+    internal/app/           "local" mode: runs the mux directly in this terminal
     internal/config/        config structs, loader, default.toml (embedded), action table
     internal/input/         key / mouse parsing, chord normalisation (leader expansion)
     internal/screen/        cell buffer + diffing renderer
-    internal/pane/          one PTY + terminal emulator (vt10x)
+    internal/vt/            terminal emulator: vendored vt10x (MIT) + scrollback ring
+    internal/pane/          one PTY + its emulator
+    internal/session/       persistent sessions: server (owns the mux), client, wire protocol
     internal/stats/         cpu / mem / net / battery sampling, custom command widgets
     internal/clipboard/     OSC 52 + native clipboard tools
     internal/mux/           the multiplexer
@@ -34,6 +67,7 @@ configurable status bar, mouse, vim-style copy mode.
         bar.go              status bar + widgets            <- add new widgets here
         help.go             scrollable help overlay
         selection.go        selection model, text extraction, copy / paste
+        scrollback.go       logical rows (history + screen), viewport anchoring
         copymode.go         vim visual copy mode
 
 Adding an action: add a line to `ActionInfo` (internal/config/actions.go), a
@@ -69,6 +103,8 @@ and ctrl+h/i/j/m collide with backspace/tab/enter, so `alt` is the safe default.
 | leader+/ | help (scrollable, generated from your config) |
 | leader+Q | quit |
 | alt+a | vim visual copy mode |
+| leader+d | detach (session keeps running) |
+| shift+pageup / shift+pagedown | scroll through history |
 
 ## Status bar
 
@@ -107,9 +143,9 @@ work (e.g. `termux-battery-status`).
 Moves a cursor over the pane's screen. `hjkl` `w b e` `W B E` `0 ^ $` `gg G`
 `H M L` `{ }` `f F t T ; ,` `ctrl+u/d/f/b`, counts (`3j`); `v` / `V` /
 `ctrl+v` start char / line / block selection, `o` swaps ends, `y` or `Enter`
-copies, `Esc` leaves. Only the visible screen is selectable for now.
+copies, `Esc` leaves. It works over the whole scrollback, not just the screen.
 
 ## Not included yet
 
-Per-pane scrollback (the emulator keeps none), detach/reattach sessions,
-wide (CJK) glyphs.
+Wide (CJK) glyphs; history is not re-wrapped when a pane is resized; one
+attached client per session at a time.

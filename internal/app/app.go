@@ -1,5 +1,6 @@
-// Package app owns the process lifecycle: raw terminal mode, alternate
-// screen, mouse / keyboard protocol switches, signal handling, input reader.
+// Package app runs ananta in the current terminal with no background session
+// ("local" mode: closing the terminal ends everything). The persistent
+// server/client mode lives in package session.
 package app
 
 import (
@@ -32,7 +33,7 @@ func readInput(keys chan<- []input.Key) {
 	}
 }
 
-// Run starts the multiplexer and blocks until it exits.
+// Run starts the multiplexer in this terminal and blocks until it exits.
 func Run(cfg *config.Config) error {
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
@@ -48,26 +49,15 @@ func Run(cfg *config.Config) error {
 		return err
 	}
 
+	setup, teardown := cfg.TermModes()
 	out := bufio.NewWriterSize(os.Stdout, 1<<16)
-	out.WriteString("\x1b[?1049h\x1b[?25l")
-	if cfg.Mouse {
-		out.WriteString("\x1b[?1002h\x1b[?1006h")
-	}
-	if cfg.UseKitty() {
-		out.WriteString("\x1b[>5u")
-	}
+	out.WriteString(setup)
 	out.Flush()
 
 	m := mux.New(cfg, out)
 	cleanup := func() {
 		m.Shutdown()
-		if cfg.UseKitty() {
-			out.WriteString("\x1b[<u")
-		}
-		if cfg.Mouse {
-			out.WriteString("\x1b[?1006l\x1b[?1002l")
-		}
-		out.WriteString("\x1b[0m\x1b[?25h\x1b[?1049l")
+		out.WriteString(teardown)
 		out.Flush()
 		_ = term.Restore(fd, old)
 	}
@@ -83,12 +73,25 @@ func Run(cfg *config.Config) error {
 
 	keys := make(chan []input.Key, 16)
 	go readInput(keys)
+	post := make(chan func(), 16)
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGHUP)
+	go func() {
+		for {
+			select {
+			case <-winch:
+				if w, h, err := size(); err == nil {
+					post <- func() { m.SetSize(w, h) }
+				}
+			case <-stop:
+				post <- m.Quit
+			}
+		}
+	}()
 
-	m.Loop(keys, winch, stop, size)
+	m.Loop(keys, post)
 	cleanup()
 	return nil
 }

@@ -26,6 +26,7 @@ column_widths = [0.33, 0.5, 0.66, 1.0]   # presets used by cycle_width (fraction
 default_column_width = 0.5
 resize_step = 0.05         # grow / shrink step (fraction of screen)
 quit_on_last_exit = true
+scrollback_lines = 10000   # history kept per pane (0 = off); wheel / shift+pageup / copy mode read it
 
 # Optional tmux-style prefix. When set, keys in [prefix_keys] work after it.
 prefix = ""                # e.g. "ctrl+b"
@@ -83,6 +84,8 @@ selection_fg = "#eceff4"
 #   workspace_next workspace_prev goto_workspace N move_to_workspace N
 #   copy_mode                 vim-style visual copy mode in the focused pane
 #   paste                     paste the last copied text into the focused pane
+#   scroll_up scroll_down     scroll the focused pane through its history
+#   detach                    leave the session running in the background
 #   toggle_bar help quit
 [keys]
 "leader+h" = "focus_left"
@@ -135,5 +138,10 @@ selection_fg = "#eceff4"
 "leader+Q" = "quit"
 # explicit chord (not tied to the leader): enter vim visual copy mode
 "alt+a" = "copy_mode"
+# scrolling back through history (also: mouse wheel, copy mode)
+"shift+pageup" = "scroll_up"
+"shift+pagedown" = "scroll_down"
+# detach from the session; it keeps running (re-attach with `ananta`)
+"leader+d" = "detach"
 
 [prefix_keys]

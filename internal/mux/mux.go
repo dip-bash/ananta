@@ -18,7 +18,6 @@ package mux
 import (
 	"bufio"
 	"math"
-	"os"
 	"strings"
 	"time"
 
@@ -100,6 +99,11 @@ type Mux struct {
 	selDrag bool
 	cm      *CopyMode // non-nil while in copy mode
 	clip    string    // last copied text
+
+	attached bool // false while a session has no client: panes keep running, nothing is drawn
+
+	// OnDetach is set by the session server; the detach action calls it.
+	OnDetach func()
 }
 
 func New(cfg *config.Config, out *bufio.Writer) *Mux {
@@ -112,6 +116,7 @@ func New(cfg *config.Config, out *bufio.Writer) *Mux {
 		stats:      stats.New(),
 		scrollMode: cfg.ScrollMode,
 		scale:      1,
+		attached:   true,
 		th: theme{
 			border: config.ParseColor(cfg.Theme.Border), focusBorder: config.ParseColor(cfg.Theme.FocusBorder),
 			title: config.ParseColor(cfg.Theme.Title), focusTitle: config.ParseColor(cfg.Theme.FocusTitle),
@@ -212,8 +217,25 @@ func (m *Mux) visibleWS() []int {
 	return v
 }
 
-// Loop runs until quit. size is queried on SIGWINCH.
-func (m *Mux) Loop(keys <-chan []input.Key, winch, stop <-chan os.Signal, size func() (int, int, error)) {
+// SetAttached turns drawing on or off (a detached session keeps running but
+// has nobody to draw for). Attaching forces a full repaint.
+func (m *Mux) SetAttached(on bool) {
+	if on && !m.attached {
+		m.rend.Resize(m.W, m.H)
+	}
+	m.attached = on
+}
+
+// Quit ends the main loop.
+func (m *Mux) Quit() { m.quit = true }
+
+// PaneCount reports the number of live panes (call from the loop goroutine).
+func (m *Mux) PaneCount() int { return m.totalPanes() }
+
+// Loop runs until quit. Everything that touches mux state runs on this
+// goroutine: keys arrive on keys, and other goroutines hand it work (resize,
+// attach, detach, ...) as closures on post.
+func (m *Mux) Loop(keys <-chan []input.Key, post <-chan func()) {
 	tick := time.NewTicker(time.Second / time.Duration(m.cfg.FPS))
 	defer tick.Stop()
 	last := time.Now()
@@ -226,18 +248,14 @@ func (m *Mux) Loop(keys <-chan []input.Key, winch, stop <-chan os.Signal, size f
 			}
 			m.handleKeys(ks)
 			need = true
+		case fn := <-post:
+			fn()
+			need = true
 		case <-m.dirty:
 			need = true
 		case p := <-m.exits:
 			m.removePane(p)
 			need = true
-		case <-winch:
-			if w, h, err := size(); err == nil {
-				m.SetSize(w, h)
-			}
-			need = true
-		case <-stop:
-			return
 		case now := <-tick.C:
 			dt := math.Min(now.Sub(last).Seconds(), 0.1)
 			last = now
@@ -246,7 +264,7 @@ func (m *Mux) Loop(keys <-chan []input.Key, winch, stop <-chan os.Signal, size f
 				m.msg = ""
 				need = true
 			}
-			if need || animating {
+			if m.attached && (need || animating) {
 				m.render()
 				need = animating
 			}
