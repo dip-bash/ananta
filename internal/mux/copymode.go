@@ -7,8 +7,9 @@ import (
 	"ananta/internal/pane"
 )
 
-// CopyMode is a vim-style cursor + visual selection over a pane's visible
-// screen. Keys are consumed here instead of being sent to the app.
+// CopyMode is a vim-style cursor + visual selection over a pane's history
+// and screen (logical rows, see scrollback.go). Keys are consumed here
+// instead of being sent to the app.
 type CopyMode struct {
 	P        *pane.Pane
 	X, Y     int  // cursor
@@ -47,8 +48,13 @@ func (m *Mux) enterCopyMode() {
 	m.overview, m.showHelp = false, false
 	p.Term.Lock()
 	cur := p.Term.Cursor()
+	v := viewLocked(p)
 	p.Term.Unlock()
-	m.cm = &CopyMode{P: p, X: cur.X, Y: cur.Y}
+	cm := &CopyMode{P: p, X: cur.X, Y: v.hist + cur.Y}
+	if p.Anchored { // already scrolled back: start at the top of what you see
+		cm.X, cm.Y = 0, viewTop(p, v)
+	}
+	m.cm = cm
 }
 
 func isBlankRow(row []rune) bool {
@@ -88,18 +94,17 @@ func charClass(r rune, big bool) int {
 	return 2
 }
 
-// wordMove implements w/W/b/B/e/E. The grid is treated as text with a
+// wordMove implements w/W/b/B/e/E. The buffer is treated as text with a
 // newline after every row.
-func wordMove(grid [][]rune, x, y *int, kind byte) {
-	cols, rows := len(grid[0]), len(grid)
-	w := cols + 1
-	limit := rows * w
+func wordMove(g *grid, x, y *int, kind byte) {
+	w := g.cols + 1
+	limit := g.total * w
 	big := kind == 'W' || kind == 'B' || kind == 'E'
 	cl := func(i int) int {
-		if i%w == cols {
+		if i%w == g.cols {
 			return 0
 		}
-		return charClass(grid[i/w][i%w], big)
+		return charClass(g.row(i / w)[i%w], big)
 	}
 	idx := *y*w + *x
 	switch kind {
@@ -137,11 +142,11 @@ func wordMove(grid [][]rune, x, y *int, kind byte) {
 	}
 	idx = max(0, min(limit-1, idx))
 	*y = idx / w
-	*x = min(cols-1, idx%w)
+	*x = min(g.cols-1, idx%w)
 }
 
 // findChar implements f/F/t/T (reverse flips the direction, for , ).
-func (cm *CopyMode) findChar(grid [][]rune, op byte, ch rune, reverse bool) {
+func (cm *CopyMode) findChar(g *grid, op byte, ch rune, reverse bool) {
 	if reverse {
 		switch op {
 		case 'f':
@@ -154,7 +159,7 @@ func (cm *CopyMode) findChar(grid [][]rune, op byte, ch rune, reverse bool) {
 			op = 't'
 		}
 	}
-	row := grid[cm.Y]
+	row := g.row(cm.Y)
 	if op == 'f' || op == 't' {
 		for x := cm.X + 1; x < len(row); x++ {
 			if row[x] == ch {
@@ -180,17 +185,13 @@ func (cm *CopyMode) findChar(grid [][]rune, op byte, ch rune, reverse bool) {
 
 func (m *Mux) yank(line bool) {
 	cm := m.cm
-	grid := snapshot(cm.P)
-	cols := 1
-	if len(grid) > 0 {
-		cols = len(grid[0])
-	}
+	g := newGrid(cm.P)
 	sel := cm.selection()
 	switch {
 	case sel != nil && line:
 		sel.Kind = 'l'
 	case sel == nil:
-		sel = &Selection{P: cm.P, AX: 0, AY: cm.Y, CX: cols - 1, CY: cm.Y, Kind: 'l'}
+		sel = &Selection{P: cm.P, AX: 0, AY: cm.Y, CX: g.cols - 1, CY: cm.Y, Kind: 'l'}
 	}
 	m.copyText(m.extract(sel))
 	m.cm = nil
@@ -208,23 +209,37 @@ func (m *Mux) toggleVisual(kind byte) {
 	cm.Vis = kind
 }
 
+// cmEnsureVisible scrolls the pane so the copy cursor stays on screen.
+func (m *Mux) cmEnsureVisible() {
+	cm := m.cm
+	p := cm.P
+	v := viewOf(p)
+	top := viewTop(p, v)
+	vis := max(1, v.rows)
+	switch {
+	case cm.Y < top:
+		top = cm.Y
+	case cm.Y >= top+vis:
+		top = cm.Y - vis + 1
+	}
+	setTop(p, top, v)
+}
+
 func (m *Mux) copyKey(k input.Key) {
 	cm := m.cm
 	if cm.P.Dead {
 		m.cm = nil
 		return
 	}
-	grid := snapshot(cm.P)
-	rows := len(grid)
-	if rows == 0 || len(grid[0]) == 0 {
-		m.cm = nil
-		return
-	}
-	cols := len(grid[0])
+	g := newGrid(cm.P)
+	rows, cols := g.total, g.cols
+	vis := max(1, g.v.rows)
+	top := viewTop(cm.P, g.v)
 	defer func() {
 		if m.cm != nil {
 			m.cm.Y = max(0, min(rows-1, m.cm.Y))
 			m.cm.X = max(0, min(cols-1, m.cm.X))
+			m.cmEnsureVisible()
 		}
 	}()
 
@@ -246,13 +261,13 @@ func (m *Mux) copyKey(k input.Key) {
 		if op == 'g' {
 			if r == 'g' {
 				cm.Y = 0
-				cm.X = firstNonBlank(grid[0])
+				cm.X = firstNonBlank(g.row(0))
 			}
 			return
 		}
 		cm.lastFind, cm.lastCh = op, r
 		for i := 0; i < n; i++ {
-			cm.findChar(grid, op, r, false)
+			cm.findChar(g, op, r, false)
 		}
 		return
 	}
@@ -264,7 +279,7 @@ func (m *Mux) copyKey(k input.Key) {
 	}
 	n := max(1, cm.count)
 	cm.count = 0
-	half, page := max(1, rows/2), max(1, rows-1)
+	half, page := max(1, vis/2), max(1, vis-1)
 
 	switch k.Name {
 	case "esc":
@@ -284,7 +299,7 @@ func (m *Mux) copyKey(k input.Key) {
 	case "home":
 		cm.X = 0
 	case "end":
-		cm.X = lastNonBlank(grid[cm.Y])
+		cm.X = lastNonBlank(g.row(cm.Y))
 	case "ctrl+u":
 		cm.Y -= half * n
 	case "ctrl+d":
@@ -314,12 +329,12 @@ func (m *Mux) copyKey(k input.Key) {
 	case '0':
 		cm.X = 0
 	case '^':
-		cm.X = firstNonBlank(grid[cm.Y])
+		cm.X = firstNonBlank(g.row(cm.Y))
 	case '$':
-		cm.X = lastNonBlank(grid[cm.Y])
+		cm.X = lastNonBlank(g.row(cm.Y))
 	case 'w', 'W', 'b', 'B', 'e', 'E':
 		for i := 0; i < n; i++ {
-			wordMove(grid, &cm.X, &cm.Y, byte(r))
+			wordMove(g, &cm.X, &cm.Y, byte(r))
 		}
 	case 'g', 'f', 'F', 't', 'T':
 		cm.pend = byte(r)
@@ -329,24 +344,24 @@ func (m *Mux) copyKey(k input.Key) {
 		}
 	case 'G':
 		last := rows - 1
-		for last > 0 && isBlankRow(grid[last]) {
+		for last > 0 && isBlankRow(g.row(last)) {
 			last--
 		}
 		cm.Y = last
-		cm.X = firstNonBlank(grid[last])
+		cm.X = firstNonBlank(g.row(last))
 	case 'H':
-		cm.Y = 0
+		cm.Y = top
 	case 'M':
-		cm.Y = rows / 2
+		cm.Y = top + vis/2
 	case 'L':
-		cm.Y = rows - 1
+		cm.Y = top + vis - 1
 	case '{':
 		for i := 0; i < n; i++ {
 			y := cm.Y - 1
-			for y > 0 && isBlankRow(grid[y]) {
+			for y > 0 && isBlankRow(g.row(y)) {
 				y--
 			}
-			for y > 0 && !isBlankRow(grid[y]) {
+			for y > 0 && !isBlankRow(g.row(y)) {
 				y--
 			}
 			cm.Y = max(0, y)
@@ -354,10 +369,10 @@ func (m *Mux) copyKey(k input.Key) {
 	case '}':
 		for i := 0; i < n; i++ {
 			y := cm.Y + 1
-			for y < rows-1 && isBlankRow(grid[y]) {
+			for y < rows-1 && isBlankRow(g.row(y)) {
 				y++
 			}
-			for y < rows-1 && !isBlankRow(grid[y]) {
+			for y < rows-1 && !isBlankRow(g.row(y)) {
 				y++
 			}
 			cm.Y = min(rows-1, y)
@@ -365,7 +380,7 @@ func (m *Mux) copyKey(k input.Key) {
 	case ';', ',':
 		if cm.lastFind != 0 {
 			for i := 0; i < n; i++ {
-				cm.findChar(grid, cm.lastFind, cm.lastCh, r == ',')
+				cm.findChar(g, cm.lastFind, cm.lastCh, r == ',')
 			}
 		}
 	case 'v':

@@ -9,8 +9,8 @@ import (
 	"ananta/internal/pane"
 )
 
-// Selection is a highlighted region of one pane, in that pane's cell
-// coordinates. Kind: 'c' character stream, 'l' whole lines, 'b' block.
+// Selection is a highlighted region of one pane in logical coordinates
+// (history rows first, see scrollback.go). Kind: 'c' character stream, 'l' whole lines, 'b' block.
 type Selection struct {
 	P              *pane.Pane
 	AX, AY, CX, CY int // anchor and cursor
@@ -45,37 +45,50 @@ func (s *Selection) Contains(x, y int) bool {
 	return true
 }
 
-// snapshot copies a pane's visible screen as rows of runes.
-func snapshot(p *pane.Pane) [][]rune {
-	p.Term.Lock()
-	defer p.Term.Unlock()
-	cols, rows := p.Term.Size()
-	grid := make([][]rune, rows)
-	for y := range grid {
-		grid[y] = make([]rune, cols)
-		for x := range grid[y] {
-			r := p.Term.Cell(x, y).Char
-			if r == 0 {
-				r = ' '
-			}
-			grid[y][x] = r
+// grid gives lazy, cached access to a pane's rows (history + screen) as
+// fixed-width rune slices, in logical coordinates.
+type grid struct {
+	p     *pane.Pane
+	v     paneView
+	cols  int
+	total int
+	cache map[int][]rune
+}
+
+func newGrid(p *pane.Pane) *grid {
+	v := viewOf(p)
+	return &grid{p: p, v: v, cols: max(1, v.cols), total: v.total(), cache: map[int][]rune{}}
+}
+
+func (g *grid) row(y int) []rune {
+	y = max(0, min(g.total-1, y))
+	if r, ok := g.cache[y]; ok {
+		return r
+	}
+	out := make([]rune, g.cols)
+	for i := range out {
+		out[i] = ' '
+	}
+	g.p.Term.Lock()
+	line := g.p.Term.Row(g.v.vtRow(y))
+	for i := 0; i < len(line) && i < g.cols; i++ {
+		if c := line[i].Char; c != 0 {
+			out[i] = c
 		}
 	}
-	return grid
+	g.p.Term.Unlock()
+	g.cache[y] = out
+	return out
 }
 
 // extract returns the selected text with trailing blanks trimmed per line.
 func (m *Mux) extract(s *Selection) string {
-	grid := snapshot(s.P)
-	if len(grid) == 0 || len(grid[0]) == 0 {
-		return ""
-	}
-	cols := len(grid[0])
+	g := newGrid(s.P)
 	sx, sy, ex, ey := s.ordered()
-	sy, ey = max(0, sy), min(len(grid)-1, ey)
+	sy, ey = max(0, sy), min(g.total-1, ey)
 	var lines []string
 	for y := sy; y <= ey; y++ {
-		a, b := 0, cols-1
+		a, b := 0, g.cols-1
 		switch s.Kind {
 		case 'b':
 			a, b = min(s.AX, s.CX), max(s.AX, s.CX)
@@ -87,10 +100,10 @@ func (m *Mux) extract(s *Selection) string {
 				b = ex
 			}
 		}
-		a, b = max(0, a), min(cols-1, b)
+		a, b = max(0, a), min(g.cols-1, b)
 		line := ""
 		if a <= b {
-			line = strings.TrimRight(string(grid[y][a:b+1]), " ")
+			line = strings.TrimRight(string(g.row(y)[a:b+1]), " ")
 		}
 		lines = append(lines, line)
 	}
@@ -123,5 +136,5 @@ func (m *Mux) paste() {
 		return
 	}
 	text = strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\n", "\r")
-	_, _ = p.PTY.Write([]byte(text))
+	_, _ = p.Write([]byte(text))
 }

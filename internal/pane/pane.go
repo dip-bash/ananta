@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
+	"ananta/internal/vt"
 	"github.com/creack/pty"
-	"github.com/hinshun/vt10x"
 )
 
 type Pane struct {
@@ -16,12 +17,18 @@ type Pane struct {
 	Name       string
 	Cmd        *exec.Cmd
 	PTY        *os.File
-	Term       vt10x.Terminal
+	Term       vt.Terminal
 	Cols, Rows int
 	Dead       bool
+
+	// Viewport into scrollback, managed by the mux. When Anchored, the pane
+	// shows history starting at absolute row Top instead of following the
+	// live screen.
+	Anchored bool
+	Top      int
 }
 
-func New(id int, shell, cmdline string, cols, rows int, dirty chan<- struct{}, exits chan<- *Pane) (*Pane, error) {
+func New(id int, shell, cmdline string, cols, rows, scrollback int, dirty chan<- struct{}, exits chan<- *Pane) (*Pane, error) {
 	cols, rows = max(cols, 1), max(rows, 1)
 	var cmd *exec.Cmd
 	var name string
@@ -52,7 +59,8 @@ func New(id int, shell, cmdline string, cols, rows int, dirty chan<- struct{}, e
 		return nil, err
 	}
 	p := &Pane{ID: id, Name: name, Cmd: cmd, PTY: ptmx, Cols: cols, Rows: rows}
-	p.Term = vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithWriter(ptmx))
+	p.Term = vt.New(vt.WithSize(cols, rows), vt.WithWriter(ptmx))
+	p.Term.SetScrollbackLimit(scrollback)
 
 	go func() {
 		buf := make([]byte, 32*1024)
@@ -97,4 +105,14 @@ func (p *Pane) Close() {
 	if p.Cmd.Process != nil {
 		_ = p.Cmd.Process.Signal(syscall.SIGHUP)
 	}
+}
+
+// Write sends input to the child. A stuck child (full PTY buffer) can't
+// freeze the UI: the write gives up after a short deadline.
+func (p *Pane) Write(b []byte) (int, error) {
+	if p.Dead {
+		return 0, os.ErrClosed
+	}
+	_ = p.PTY.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+	return p.PTY.Write(b)
 }

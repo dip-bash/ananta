@@ -132,6 +132,20 @@ func (m *Mux) run(a config.Action) {
 		m.enterCopyMode()
 	case "paste":
 		m.paste()
+	case "scroll_up", "scroll_down":
+		if p := m.focusedPane(); p != nil {
+			n := max(1, p.Rows/2)
+			if a.Name == "scroll_down" {
+				n = -n
+			}
+			m.scrollBack(p, n)
+		}
+	case "detach":
+		if m.OnDetach != nil {
+			m.OnDetach()
+		} else {
+			m.notify("not in a session — start one with `ananta`")
+		}
 	case "toggle_bar":
 		m.barHidden = !m.barHidden
 	case "help":

@@ -3,7 +3,7 @@ package mux
 import (
 	"fmt"
 
-	"github.com/hinshun/vt10x"
+	"ananta/internal/vt"
 
 	"ananta/internal/config"
 	"ananta/internal/input"
@@ -53,7 +53,7 @@ func innerPos(h *hit, x, y int) (cx, cy int, ok bool) {
 	return cx, cy, cx >= 0 && cy >= 0 && cx < h.w-2 && cy < h.h-2
 }
 
-func paneMode(p *pane.Pane) vt10x.ModeFlag {
+func paneMode(p *pane.Pane) vt.ModeFlag {
 	p.Term.Lock()
 	defer p.Term.Unlock()
 	return p.Term.Mode()
@@ -66,10 +66,10 @@ func (m *Mux) forwardMouse(h *hit, ev *input.Mouse) {
 		return
 	}
 	mode := paneMode(h.p)
-	if mode&vt10x.ModeMouseMask == 0 {
+	if mode&vt.ModeMouseMask == 0 {
 		return
 	}
-	if ev.Btn&32 != 0 && mode&(vt10x.ModeMouseMotion|vt10x.ModeMouseMany) == 0 {
+	if ev.Btn&32 != 0 && mode&(vt.ModeMouseMotion|vt.ModeMouseMany) == 0 {
 		return
 	}
 	cx, cy, ok := innerPos(h, ev.X, ev.Y)
@@ -78,7 +78,7 @@ func (m *Mux) forwardMouse(h *hit, ev *input.Mouse) {
 	}
 	cx, cy = cx+1, cy+1 // protocol is 1-based
 	var b []byte
-	if mode&vt10x.ModeMouseSgr != 0 {
+	if mode&vt.ModeMouseSgr != 0 {
 		final := 'M'
 		if !ev.Press {
 			final = 'm'
@@ -94,7 +94,7 @@ func (m *Mux) forwardMouse(h *hit, ev *input.Mouse) {
 		}
 		b = []byte{0x1b, '[', 'M', byte(32 + code), byte(32 + cx), byte(32 + cy)}
 	}
-	_, _ = h.p.PTY.Write(b)
+	_, _ = h.p.Write(b)
 }
 
 func (m *Mux) handleWheel(ev *input.Mouse) {
@@ -118,7 +118,7 @@ func (m *Mux) handleWheel(ev *input.Mouse) {
 	}
 	mode := paneMode(h.p)
 	switch {
-	case mode&vt10x.ModeMouseMask != 0:
+	case mode&vt.ModeMouseMask != 0:
 		m.forwardMouse(h, ev)
 	case dir >= 2:
 		if dir == 2 {
@@ -126,13 +126,19 @@ func (m *Mux) handleWheel(ev *input.Mouse) {
 		} else {
 			m.run(config.Action{Name: "focus_right"})
 		}
-	case mode&vt10x.ModeAltScreen != 0: // full-screen app without mouse: wheel -> arrows
+	case mode&vt.ModeAltScreen == 0: // normal screen: scroll through history
+		n := 3
+		if dir == 1 {
+			n = -3
+		}
+		m.scrollBack(h.p, n)
+	default: // full-screen app without mouse: wheel -> arrows
 		c := byte('A')
 		if dir == 1 {
 			c = 'B'
 		}
 		intro := []byte{0x1b, '['}
-		if mode&vt10x.ModeAppCursor != 0 {
+		if mode&vt.ModeAppCursor != 0 {
 			intro = []byte{0x1b, 'O'}
 		}
 		seq := append(intro, c)
@@ -140,7 +146,7 @@ func (m *Mux) handleWheel(ev *input.Mouse) {
 		for i := 0; i < 3; i++ {
 			out = append(out, seq...)
 		}
-		_, _ = h.p.PTY.Write(out)
+		_, _ = h.p.Write(out)
 	}
 }
 
@@ -218,7 +224,7 @@ func (m *Mux) leftPress(ev *input.Mouse) {
 	}
 	cx, cy, inner := innerPos(h, ev.X, ev.Y)
 	shift := ev.Btn&4 != 0
-	appMouse := paneMode(h.p)&vt10x.ModeMouseMask != 0
+	appMouse := paneMode(h.p)&vt.ModeMouseMask != 0
 
 	if appMouse && !shift { // the app handles its own mouse (vim, htop, ...)
 		if m.isFocused(h) {
@@ -238,7 +244,9 @@ func (m *Mux) leftPress(ev *input.Mouse) {
 	}
 	// start a pane-local selection; the host terminal never sees the drag, so
 	// it can't grab neighbouring panes or borders
-	m.sel = &Selection{P: h.p, AX: cx, AY: cy, CX: cx, CY: cy, Kind: 'c'}
+	v := viewOf(h.p)
+	ly := viewTop(h.p, v) + cy
+	m.sel = &Selection{P: h.p, AX: cx, AY: ly, CX: cx, CY: ly, Kind: 'c'}
 	m.selDrag = true
 }
 
@@ -247,8 +255,15 @@ func (m *Mux) dragSelection(ev *input.Mouse) {
 	if h == nil {
 		return
 	}
+	rawY := ev.Y - (h.y + 1)
+	if rawY < 0 { // dragging past the edge scrolls the history
+		m.scrollBack(h.p, 1)
+	} else if rawY > h.h-3 {
+		m.scrollBack(h.p, -1)
+	}
+	v := viewOf(h.p)
 	m.sel.CX = max(0, min(h.w-3, ev.X-(h.x+1)))
-	m.sel.CY = max(0, min(h.h-3, ev.Y-(h.y+1)))
+	m.sel.CY = viewTop(h.p, v) + max(0, min(h.h-3, rawY))
 }
 
 func (m *Mux) finishSelection() {

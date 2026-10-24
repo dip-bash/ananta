@@ -3,7 +3,7 @@ package mux
 import (
 	"strings"
 
-	"github.com/hinshun/vt10x"
+	"ananta/internal/vt"
 
 	"ananta/internal/config"
 	"ananta/internal/input"
@@ -13,7 +13,7 @@ import (
 func appCursor(p *pane.Pane) bool {
 	p.Term.Lock()
 	defer p.Term.Unlock()
-	return p.Term.Mode()&vt10x.ModeAppCursor != 0
+	return p.Term.Mode()&vt.ModeAppCursor != 0
 }
 
 // translate converts a key to the bytes the focused app expects (arrow keys
@@ -86,7 +86,8 @@ func (m *Mux) handleKeys(ks []input.Key) {
 	flush := func() {
 		if len(pending) > 0 {
 			if p := m.focusedPane(); p != nil && !p.Dead {
-				_, _ = p.PTY.Write(pending)
+				p.Anchored = false // typing returns to the live screen
+				_, _ = p.Write(pending)
 			}
 			pending = pending[:0]
 		}
