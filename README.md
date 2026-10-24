@@ -1,29 +1,56 @@
-# scrollmux
+# ananta
 
-A scrollable tiling terminal multiplexer in Go (niri / PaperWM style).
-Panes live in columns on an endless horizontal strip; focusing a column glides
-the viewport to it. Square borders, animated scrolling/zoom, mouse support.
+A scrollable tiling terminal multiplexer in Go (niri / PaperWM style). Panes
+live in columns on an endless horizontal strip; focusing a column glides the
+viewport to it. Square borders, animated scrolling and zoom, overview,
+configurable status bar, mouse, vim-style copy mode.
 
 ## Build
 
     go mod tidy
-    go build -o scrollmux .
-    ./scrollmux --init      # writes ~/.config/scrollmux/config.toml
-    ./scrollmux
+    make build              # or: go build -o ananta ./cmd/ananta
+    ./ananta --init         # writes ~/.config/ananta/config.toml
+    ./ananta
+
+`./ananta --print-config` prints every option with comments.
+
+## Project layout
+
+    cmd/ananta/main.go      flags, config loading, starts the app
+    internal/app/           terminal setup (raw mode, alt screen, mouse/kitty), signals
+    internal/config/        config structs, loader, default.toml (embedded), action table
+    internal/input/         key / mouse parsing, chord normalisation (leader expansion)
+    internal/screen/        cell buffer + diffing renderer
+    internal/pane/          one PTY + terminal emulator (vt10x)
+    internal/stats/         cpu / mem / net / battery sampling, custom command widgets
+    internal/clipboard/     OSC 52 + native clipboard tools
+    internal/mux/           the multiplexer
+        mux.go              types, construction, event loop
+        layout.go           workspaces / columns / panes, scrolling math, animation
+        actions.go          what each action does          <- add new actions here
+        keyboard.go         key dispatch
+        mouse.go            clicks, drag selection, wheel, app mouse forwarding
+        render.go           frame composition, overview thumbnails
+        bar.go              status bar + widgets            <- add new widgets here
+        help.go             scrollable help overlay
+        selection.go        selection model, text extraction, copy / paste
+        copymode.go         vim visual copy mode
+
+Adding an action: add a line to `ActionInfo` (internal/config/actions.go), a
+`case` in `run` (internal/mux/actions.go), and bind it in `default.toml`.
+The help screen picks it up automatically.
 
 ## Leader key
 
-Every default shortcut is written as `leader+<key>` in the config. Change one
-line to move them all:
+Default shortcuts are written `leader+<key>`. Change one line to move them all:
 
     leader = "alt"        # or "super", "ctrl", "ctrl+alt", ...
 
-`super` and `ctrl` need a terminal with the kitty keyboard protocol (kitty,
-foot, wezterm, ghostty, alacritty >= 0.13, ...). Plain terminals cannot send
-super, and ctrl+h/i/j/m collide with backspace/tab/enter, so `alt` is the safe
-default. You can still bind single chords explicitly (`"super+t" = "new_pane"`).
+`super` / `ctrl` need a terminal with the kitty keyboard protocol (kitty, foot,
+wezterm, ghostty, alacritty >= 0.13, ...). Plain terminals cannot send super,
+and ctrl+h/i/j/m collide with backspace/tab/enter, so `alt` is the safe default.
 
-## Default keys (leader = alt)
+## Keys (leader = alt)
 
 | Key | Action |
 |---|---|
@@ -35,30 +62,54 @@ default. You can still bind single chords explicitly (`"super+t" = "new_pane"`).
 | leader+r / f / - / = | cycle width / maximize / narrow / widen |
 | leader+c | toggle always-centered <-> PaperWM-style scrolling |
 | leader+C | center the focused column once |
-| leader+o | overview (bird's-eye view of all workspaces) |
+| leader+o | overview |
+| leader+b | show / hide status bar |
+| leader+p | paste last copied text |
 | leader+1..9 | workspace (leader+! @ # move pane to 1-3) |
 | leader+/ | help (scrollable, generated from your config) |
 | leader+Q | quit |
+| alt+a | vim visual copy mode |
 
-In the overview: h/j/k/l or arrows move focus, Enter centers and exits, Esc exits.
-The help screen scrolls with j/k, PgUp/PgDn, g/G or the mouse wheel.
+## Status bar
 
-## Mouse
+    [bar]
+    position = "bottom"      # top | bottom | hidden
+    left   = ["workspaces", "columns", "mode"]
+    center = ["message"]
+    right  = ["cpu", "mem", "net", "battery", "time", "help"]
+    time_format = "15:04"    # Go layout
 
-Click a pane to focus it. In the overview, clicking a window focuses it, zooms
-back in and centers it. Wheel switches workspaces in the overview and scrolls
-full-screen apps (less, vim) otherwise; apps that request mouse reporting
-receive the events. Hold shift to select text with your terminal.
-Disable with `mouse = false`.
+Built-in widgets: workspaces columns mode message title help cpu mem net
+battery load time date host user. Anything else is a shell command:
 
-## Config
+    [bar.widgets.weather]
+    command  = "curl -s 'wttr.in/?format=%t'"
+    interval = 600
+    prefix   = "☀ "
 
-`./scrollmux --print-config` shows every option: `scroll_mode`,
-`overview_scale`, `animation_speed`, `border_style` (single/double/heavy/ascii,
-never rounded), theme colors, `[keys]`, optional tmux-style `prefix`.
-Bind a key to a command: `"leader+g" = "new_pane lazygit"`.
-Unbind a default: `"leader+w" = "none"`.
+then add `"weather"` to a list. On narrow screens right-hand widgets drop out
+from the left. cpu/mem/net/battery read /proc and /sys (Linux); where those are
+unavailable (macOS, locked-down Android) they hide, and custom commands still
+work (e.g. `termux-battery-status`).
+
+## Mouse and selection
+
+- Click a pane to focus it. In the overview a click focuses, zooms in and centers.
+- Drag inside a pane to select text. The selection never leaves that pane (no
+  borders, no neighbours) and is copied on release (OSC 52 + wl-copy / xclip /
+  xsel / termux-clipboard-set / pbcopy when installed).
+- Apps that use the mouse themselves (vim, htop) keep receiving it; hold shift
+  to force ananta's selection over such an app.
+- Wheel: scrolls full-screen apps (less, vim); switches workspaces in the overview.
+
+## Copy mode (alt+a)
+
+Moves a cursor over the pane's screen. `hjkl` `w b e` `W B E` `0 ^ $` `gg G`
+`H M L` `{ }` `f F t T ; ,` `ctrl+u/d/f/b`, counts (`3j`); `v` / `V` /
+`ctrl+v` start char / line / block selection, `o` swaps ends, `y` or `Enter`
+copies, `Esc` leaves. Only the visible screen is selectable for now.
 
 ## Not included yet
 
-Per-pane scrollback, detach/reattach sessions, wide (CJK) glyphs.
+Per-pane scrollback (the emulator keeps none), detach/reattach sessions,
+wide (CJK) glyphs.

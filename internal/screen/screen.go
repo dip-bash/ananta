@@ -1,19 +1,19 @@
-package main
+package screen
 
 import (
 	"bufio"
 	"strconv"
 )
 
-// Col is a terminal color: -1 = default, 0..255 = palette, trueBit|rgb = truecolor.
+// Col is a terminal color: -1 = default, 0..255 = palette, TrueBit|rgb = truecolor.
 type Col int32
 
 const (
 	ColDefault Col = -1
-	trueBit        = 0x1000000
+	TrueBit        = 0x1000000
 )
 
-func RGB(r, g, b uint8) Col { return Col(trueBit | int32(r)<<16 | int32(g)<<8 | int32(b)) }
+func RGB(r, g, b uint8) Col { return Col(TrueBit | int32(r)<<16 | int32(g)<<8 | int32(b)) }
 
 const (
 	AttrBold uint8 = 1 << iota
@@ -28,7 +28,7 @@ type Cell struct {
 	A      uint8
 }
 
-var blank = Cell{R: ' ', FG: ColDefault, BG: ColDefault}
+var Blank = Cell{R: ' ', FG: ColDefault, BG: ColDefault}
 
 type Screen struct {
 	W, H int
@@ -43,7 +43,7 @@ func NewScreen(w, h int) *Screen {
 
 func (s *Screen) Clear() {
 	for i := range s.C {
-		s.C[i] = blank
+		s.C[i] = Blank
 	}
 }
 
@@ -95,7 +95,7 @@ func (r *Renderer) color(base int, c Col) {
 	w := r.out
 	w.WriteByte(';')
 	w.WriteString(strconv.Itoa(base))
-	if c&trueBit != 0 {
+	if c&TrueBit != 0 {
 		w.WriteString(";2;")
 		w.WriteString(strconv.Itoa(int(c>>16) & 0xff))
 		w.WriteByte(';')
@@ -168,4 +168,14 @@ func (r *Renderer) Flush(cx, cy int, showCursor bool) {
 	}
 	w.WriteString("\x1b[?2026l")
 	w.Flush()
+}
+
+// Cur is the frame being composed; draw into it, then call Flush.
+func (r *Renderer) Cur() *Screen { return r.cur }
+
+// Raw writes bytes straight to the terminal (e.g. an OSC 52 clipboard
+// sequence) and flushes immediately. Only call it from the render goroutine.
+func (r *Renderer) Raw(s string) {
+	r.out.WriteString(s)
+	r.out.Flush()
 }

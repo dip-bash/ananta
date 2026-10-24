@@ -1,4 +1,4 @@
-package main
+package input
 
 import (
 	"strconv"
@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	modShift = 1 << iota
-	modAlt
-	modCtrl
-	modSuper
+	ModShift = 1 << iota
+	ModAlt
+	ModCtrl
+	ModSuper
 )
 
 // Mouse is a decoded SGR (1006) mouse report. X and Y are 0-based screen cells.
@@ -31,44 +31,44 @@ type Key struct {
 }
 
 // canon builds the canonical chord name. Modifier order: ctrl, alt, super, shift.
-func canon(mask int, key string) string {
+func Canon(mask int, key string) string {
 	var sb strings.Builder
-	if mask&modCtrl != 0 {
+	if mask&ModCtrl != 0 {
 		sb.WriteString("ctrl+")
 	}
-	if mask&modAlt != 0 {
+	if mask&ModAlt != 0 {
 		sb.WriteString("alt+")
 	}
-	if mask&modSuper != 0 {
+	if mask&ModSuper != 0 {
 		sb.WriteString("super+")
 	}
-	if mask&modShift != 0 {
+	if mask&ModShift != 0 {
 		sb.WriteString("shift+")
 	}
 	sb.WriteString(key)
 	return sb.String()
 }
 
-func maskName(mask int) string {
-	s := canon(mask, "")
+func MaskName(mask int) string {
+	s := Canon(mask, "")
 	return strings.TrimSuffix(s, "+")
 }
 
 func modBit(tok string) int {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "ctrl", "control":
-		return modCtrl
+		return ModCtrl
 	case "alt", "meta", "opt", "option":
-		return modAlt
+		return ModAlt
 	case "shift":
-		return modShift
+		return ModShift
 	case "super", "cmd", "win", "gui", "hyper":
-		return modSuper
+		return ModSuper
 	}
 	return 0
 }
 
-func parseMods(s string) int {
+func ParseMods(s string) int {
 	m := 0
 	for _, t := range strings.Split(s, "+") {
 		m |= modBit(t)
@@ -85,7 +85,7 @@ var keyAliases = map[string]string{
 // normalizeChord turns a user-written chord ("leader+H", "Super+Return") into
 // the canonical form produced by the input parser. "leader" expands to the
 // configured leader modifier(s).
-func normalizeChord(s string, leader int) string {
+func NormalizeChord(s string, leader int) string {
 	s = strings.TrimSpace(s)
 	parts := strings.Split(s, "+")
 	var key string
@@ -106,7 +106,7 @@ func normalizeChord(s string, leader int) string {
 	}
 	if utf8.RuneCountInString(key) == 1 {
 		if key[0] >= 'A' && key[0] <= 'Z' {
-			mask |= modShift
+			mask |= ModShift
 			key = strings.ToLower(key)
 		}
 	} else {
@@ -115,7 +115,7 @@ func normalizeChord(s string, leader int) string {
 			key = a
 		}
 	}
-	return canon(mask, key)
+	return Canon(mask, key)
 }
 
 func ctrlName(c byte) string {
@@ -139,7 +139,7 @@ func plainKey(b []byte) (mask int, key string, size int) {
 	case c == 0x09:
 		return 0, "tab", 1
 	case c < 0x20:
-		return modCtrl, ctrlName(c), 1
+		return ModCtrl, ctrlName(c), 1
 	}
 	r, sz := utf8.DecodeRune(b)
 	if r == utf8.RuneError && sz <= 1 {
@@ -149,7 +149,7 @@ func plainKey(b []byte) (mask int, key string, size int) {
 	case r == ' ':
 		return 0, "space", sz
 	case r >= 'A' && r <= 'Z':
-		return modShift, strings.ToLower(string(r)), sz
+		return ModShift, strings.ToLower(string(r)), sz
 	}
 	return 0, string(r), sz
 }
@@ -201,7 +201,7 @@ func csiName(params []byte, final byte) string {
 	case 'S':
 		key = "f4"
 	case 'Z':
-		key, mask = "tab", mask|modShift
+		key, mask = "tab", mask|ModShift
 	case '~':
 		n, _ := strconv.Atoi(ps[0])
 		key = tildeKeys[n]
@@ -209,7 +209,7 @@ func csiName(params []byte, final byte) string {
 	if key == "" {
 		return ""
 	}
-	return canon(mask, key)
+	return Canon(mask, key)
 }
 
 func ss3Name(c byte) string {
@@ -250,19 +250,19 @@ func kittyKey(params []byte) (name string, raw []byte) {
 		key = "space"
 	default:
 		r = rune(code)
-		if shifted > 0 && mask&modShift != 0 && !unicode.IsLetter(r) {
+		if shifted > 0 && mask&ModShift != 0 && !unicode.IsLetter(r) {
 			r = rune(shifted)
-			mask &^= modShift
+			mask &^= ModShift
 		}
 		if r < 0x20 || (r >= 57344 && r <= 63743) {
 			return "", nil
 		}
 		key = string(unicode.ToLower(r))
 	}
-	name = canon(mask, key)
+	name = Canon(mask, key)
 
 	// legacy bytes
-	if mask&modSuper != 0 {
+	if mask&ModSuper != 0 {
 		return name, nil
 	}
 	var b []byte
@@ -272,7 +272,7 @@ func kittyKey(params []byte) (name string, raw []byte) {
 	case "enter":
 		b = []byte{'\r'}
 	case "tab":
-		if mask&modShift != 0 {
+		if mask&ModShift != 0 {
 			b = []byte("\x1b[Z")
 		} else {
 			b = []byte{'\t'}
@@ -280,17 +280,17 @@ func kittyKey(params []byte) (name string, raw []byte) {
 	case "backspace":
 		b = []byte{0x7f}
 	case "space":
-		if mask&modCtrl != 0 {
+		if mask&ModCtrl != 0 {
 			b = []byte{0}
 		} else {
 			b = []byte{' '}
 		}
 	default:
 		out := r
-		if mask&modShift != 0 && unicode.IsLetter(r) {
+		if mask&ModShift != 0 && unicode.IsLetter(r) {
 			out = unicode.ToUpper(r)
 		}
-		if mask&modCtrl != 0 {
+		if mask&ModCtrl != 0 {
 			lr := unicode.ToLower(r)
 			switch {
 			case lr >= 'a' && lr <= 'z':
@@ -313,7 +313,7 @@ func kittyKey(params []byte) (name string, raw []byte) {
 			b = []byte(string(out))
 		}
 	}
-	if mask&modAlt != 0 {
+	if mask&ModAlt != 0 {
 		b = append([]byte{0x1b}, b...)
 	}
 	return name, b
@@ -335,7 +335,7 @@ func parseMouse(params []byte, final byte) *Mouse {
 
 // parseKeys splits a chunk of stdin into events. It never drops bytes:
 // anything it doesn't understand gets an empty Name and is forwarded verbatim.
-func parseKeys(buf []byte) []Key {
+func ParseKeys(buf []byte) []Key {
 	var out []Key
 	i := 0
 	for i < len(buf) {
@@ -343,7 +343,7 @@ func parseKeys(buf []byte) []Key {
 			mask, key, size := plainKey(buf[i:])
 			name := ""
 			if key != "" {
-				name = canon(mask, key)
+				name = Canon(mask, key)
 			}
 			out = append(out, Key{Name: name, Raw: buf[i : i+size]})
 			i += size
@@ -389,11 +389,24 @@ func parseKeys(buf []byte) []Key {
 			mask, key, size := plainKey(buf[i+1:])
 			name := ""
 			if key != "" {
-				name = canon(mask|modAlt, key)
+				name = Canon(mask|ModAlt, key)
 			}
 			out = append(out, Key{Name: name, Raw: buf[i : i+1+size]})
 			i += 1 + size
 		}
 	}
 	return out
+}
+
+// Rune returns the printable character this key press produced, if any
+// (letters, digits, symbols; not ctrl/alt chords or special keys).
+func (k Key) Rune() (rune, bool) {
+	if len(k.Raw) == 0 || k.Raw[0] < 0x20 || k.Raw[0] == 0x7f {
+		return 0, false
+	}
+	r, size := utf8.DecodeRune(k.Raw)
+	if r == utf8.RuneError || size != len(k.Raw) {
+		return 0, false
+	}
+	return r, true
 }

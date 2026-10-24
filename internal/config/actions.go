@@ -1,0 +1,154 @@
+package config
+
+import (
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+// Action is a bound command, e.g. {Name: "goto_workspace", Arg: "2"}.
+type Action struct{ Name, Arg string }
+
+// ActionInfo is the single source of truth for action names and the
+// descriptions shown in the help screen (in this order).
+var ActionInfo = []struct{ Name, Desc string }{
+	{"focus_left", "Focus column left"},
+	{"focus_right", "Focus column right"},
+	{"focus_up", "Focus pane above"},
+	{"focus_down", "Focus pane below"},
+	{"move_left", "Move column left"},
+	{"move_right", "Move column right"},
+	{"move_up", "Move pane up"},
+	{"move_down", "Move pane down"},
+	{"new_pane", "New column"},
+	{"new_pane_below", "New pane below"},
+	{"close_pane", "Close pane"},
+	{"stack_left", "Stack into left column"},
+	{"unstack", "Pop out into own column"},
+	{"cycle_width", "Cycle column width"},
+	{"maximize", "Maximize / restore column"},
+	{"grow", "Widen column"},
+	{"shrink", "Narrow column"},
+	{"center_mode", "Toggle always-centered / PaperWM scroll"},
+	{"center_column", "Center focused column"},
+	{"first_column", "First column"},
+	{"last_column", "Last column"},
+	{"overview", "Toggle overview"},
+	{"workspace_next", "Next workspace"},
+	{"workspace_prev", "Previous workspace"},
+	{"goto_workspace", "Go to workspace"},
+	{"move_to_workspace", "Move pane to workspace"},
+	{"copy_mode", "Vim visual copy mode"},
+	{"paste", "Paste last copied text"},
+	{"toggle_bar", "Show / hide status bar"},
+	{"help", "Toggle this help"},
+	{"quit", "Quit"},
+}
+
+func ActionIndex(name string) int {
+	for i, a := range ActionInfo {
+		if a.Name == name {
+			return i
+		}
+	}
+	return len(ActionInfo)
+}
+
+// KeyFor returns the shortest chord bound to an argument-less action.
+func (c *Config) KeyFor(action string) string {
+	best := ""
+	for k, a := range c.Keymap {
+		if a.Name == action && a.Arg == "" && (best == "" || len(k) < len(best) || (len(k) == len(best) && k < best)) {
+			best = k
+		}
+	}
+	return best
+}
+
+func truncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n <= 1 {
+		return string(r[:max(n, 0)])
+	}
+	return string(r[:n-1]) + "…"
+}
+
+// HelpLines builds the help screen from the live keymap (one line per
+// action), so it always reflects the user's config.
+func (c *Config) HelpLines() []string {
+	type entry struct {
+		name, arg string
+		keys      []string
+	}
+	byspec := map[string]*entry{}
+	add := func(key string, a Action) {
+		spec := a.Name + " " + a.Arg
+		e := byspec[spec]
+		if e == nil {
+			e = &entry{name: a.Name, arg: a.Arg}
+			byspec[spec] = e
+		}
+		e.keys = append(e.keys, key)
+	}
+	for k, a := range c.Keymap {
+		add(k, a)
+	}
+	for k, a := range c.PrefixMap {
+		add(c.PrefixKey+" "+k, a)
+	}
+	var es []*entry
+	for _, e := range byspec {
+		sort.Strings(e.keys)
+		es = append(es, e)
+	}
+	sort.Slice(es, func(i, j int) bool {
+		a, b := es[i], es[j]
+		if ai, bi := ActionIndex(a.name), ActionIndex(b.name); ai != bi {
+			return ai < bi
+		}
+		an, ae := strconv.Atoi(a.arg)
+		bn, be := strconv.Atoi(b.arg)
+		if ae == nil && be == nil {
+			return an < bn
+		}
+		return a.arg < b.arg
+	})
+	kw := 0
+	keystr := make([]string, len(es))
+	for i, e := range es {
+		keystr[i] = strings.Join(e.keys, ", ")
+		kw = max(kw, len([]rune(keystr[i])))
+	}
+	kw = min(kw, 34)
+	var out []string
+	for i, e := range es {
+		desc := e.name
+		if idx := ActionIndex(e.name); idx < len(ActionInfo) {
+			desc = ActionInfo[idx].Desc
+		}
+		if e.arg != "" {
+			if e.name == "goto_workspace" || e.name == "move_to_workspace" {
+				desc += " " + e.arg
+			} else {
+				desc += ": " + e.arg
+			}
+		}
+		out = append(out, fmt.Sprintf("%-*s  %s", kw, truncate(keystr[i], kw), desc))
+	}
+	if key := c.KeyFor("copy_mode"); key != "" {
+		out = append(out, "",
+			"copy mode ("+key+"):  hjkl w b e W B E 0 ^ $ gg G H M L { } f F t T ; ,",
+			"  ctrl+u/d/f/b page   v V ctrl+v select   o swap   y/enter copy   esc leave")
+	}
+	if c.Mouse {
+		out = append(out, "",
+			"mouse: click = focus (in the overview: focus + center)",
+			"mouse: drag inside a pane = select + copy (stays in that pane)",
+			"mouse: wheel = scroll full-screen apps / switch workspace in overview")
+	}
+	return out
+}
