@@ -1,4 +1,4 @@
-package ananta
+package main
 
 import (
 	"bufio"
@@ -163,7 +163,7 @@ func (r *Renderer) Flush(cx, cy int, showCursor bool) {
 	}
 	copy(r.prev.C, r.cur.C)
 	w.WriteString("\x1b[0m")
-	if showCursor {
+	if showCursor && cx >= 0 && cy >= 0 && cx < r.cur.W && cy < r.cur.H {
 		w.WriteString("\x1b[" + strconv.Itoa(cy+1) + ";" + strconv.Itoa(cx+1) + "H\x1b[?25h")
 	}
 	w.WriteString("\x1b[?2026l")

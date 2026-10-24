@@ -1,4 +1,4 @@
-module ananta
+module scrollmux
 
 go 1.22
 
