@@ -1,4 +1,4 @@
-package main
+package ananta
 
 import (
 	"strconv"
@@ -9,11 +9,18 @@ import (
 // Key is one decoded key press. Name is a canonical chord such as "alt+h",
 // "ctrl+alt+shift+left" or "enter"; Raw is exactly what the terminal sent.
 type Key struct {
-	Name string
-	Raw  []byte
+	Name  string
+	Raw   []byte
+	Mouse *MouseEvent
 }
 
-func canon(ctrl, alt, shift bool, key string) string {
+type MouseEvent struct {
+	X, Y       int
+	Left       bool
+	WheelDelta int // -1 up, +1 down
+}
+
+func canon(ctrl, alt, shift, super bool, key string) string {
 	var sb strings.Builder
 	if ctrl {
 		sb.WriteString("ctrl+")
@@ -23,6 +30,9 @@ func canon(ctrl, alt, shift bool, key string) string {
 	}
 	if shift {
 		sb.WriteString("shift+")
+	}
+	if super {
+		sb.WriteString("super+")
 	}
 	sb.WriteString(key)
 	return sb.String()
@@ -48,6 +58,7 @@ func normalizeChord(s string) string {
 		parts = parts[:len(parts)-1]
 	}
 	var ctrl, alt, shift bool
+	var super bool
 	for _, m := range parts {
 		switch strings.ToLower(strings.TrimSpace(m)) {
 		case "ctrl", "control":
@@ -56,6 +67,8 @@ func normalizeChord(s string) string {
 			alt = true
 		case "shift":
 			shift = true
+		case "super", "win", "windows", "cmd", "command":
+			super = true
 		}
 	}
 	if utf8.RuneCountInString(key) == 1 {
@@ -69,7 +82,7 @@ func normalizeChord(s string) string {
 			key = a
 		}
 	}
-	return canon(ctrl, alt, shift, key)
+	return canon(ctrl, alt, shift, super, key)
 }
 
 func ctrlName(c byte) string {
@@ -154,13 +167,49 @@ func csiName(params []byte, final byte) string {
 	if key == "" {
 		return ""
 	}
-	return canon(ctrl, alt, shift, key)
+	super := mod&8 != 0
+	return canon(ctrl, alt, shift, super, key)
 }
 
 func ss3Name(c byte) string {
 	m := map[byte]string{'A': "up", 'B': "down", 'C': "right", 'D': "left", 'H': "home", 'F': "end",
 		'P': "f1", 'Q': "f2", 'R': "f3", 'S': "f4"}
 	return m[c]
+}
+
+func parseSGRMouse(params []byte, final byte) *MouseEvent {
+	ps := strings.Split(string(params), ";")
+	if len(ps) != 3 || !strings.HasPrefix(ps[0], "<") {
+		return nil
+	}
+	cb, err := strconv.Atoi(strings.TrimPrefix(ps[0], "<"))
+	if err != nil {
+		return nil
+	}
+	x, err := strconv.Atoi(ps[1])
+	if err != nil {
+		return nil
+	}
+	y, err := strconv.Atoi(ps[2])
+	if err != nil {
+		return nil
+	}
+	ev := &MouseEvent{X: max(0, x-1), Y: max(0, y-1)}
+	btn := cb & 0b11
+	wheel := cb&64 != 0
+	if wheel {
+		if btn == 0 {
+			ev.WheelDelta = -1
+		} else if btn == 1 {
+			ev.WheelDelta = 1
+		}
+		return ev
+	}
+	if final == 'M' && btn == 0 {
+		ev.Left = true
+		return ev
+	}
+	return nil
 }
 
 // parseKeys splits a chunk of stdin into key presses. It never drops bytes:
@@ -173,7 +222,7 @@ func parseKeys(buf []byte) []Key {
 			ctrl, shift, key, size := plainKey(buf[i:])
 			name := ""
 			if key != "" {
-				name = canon(ctrl, false, shift, key)
+				name = canon(ctrl, false, shift, false, key)
 			}
 			out = append(out, Key{Name: name, Raw: buf[i : i+size]})
 			i += size
@@ -195,6 +244,13 @@ func parseKeys(buf []byte) []Key {
 				i = len(buf)
 				continue
 			}
+			if buf[j] == 'M' || buf[j] == 'm' {
+				if me := parseSGRMouse(buf[i+2:j], buf[j]); me != nil {
+					out = append(out, Key{Raw: buf[i : j+1], Mouse: me})
+					i = j + 1
+					continue
+				}
+			}
 			out = append(out, Key{Name: csiName(buf[i+2:j], buf[j]), Raw: buf[i : j+1]})
 			i = j + 1
 		case n == 'O' && i+2 < len(buf):
@@ -207,7 +263,7 @@ func parseKeys(buf []byte) []Key {
 			ctrl, shift, key, size := plainKey(buf[i+1:])
 			name := ""
 			if key != "" {
-				name = canon(ctrl, true, shift, key)
+				name = canon(ctrl, true, shift, false, key)
 			}
 			out = append(out, Key{Name: name, Raw: buf[i : i+1+size]})
 			i += 1 + size

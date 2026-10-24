@@ -1,4 +1,4 @@
-package main
+package ananta
 
 import (
 	"os"
@@ -46,7 +46,7 @@ func newPane(id int, shell, cmdline string, cols, rows int, dirty chan<- struct{
 		cmd = exec.Command(sh, "-c", cmdline)
 		name = strings.Fields(cmdline)[0]
 	}
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "SCROLLMUX=1")
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "ANANTA=1", "SCROLLMUX=1")
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 	if err != nil {
 		return nil, err
