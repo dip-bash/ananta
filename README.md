@@ -1,11 +1,21 @@
 # ananta
 
+<div align="center">
+  <img src="https://raw.githubusercontent.com/dip-bash/img/0d793c5f53d623cf9834f91edffd9a3f24340232/ananta/Ananta.png" alt="ananta banner" width="100%">
+</div>
+
 A scrollable tiling terminal multiplexer in Go (niri / PaperWM style). Panes
 live in columns on an endless horizontal strip; focusing a column glides the
 viewport to it. Animated scrolling and zoom, an overview mode, configurable
 status bar, mouse, per-pane scrollback, vim-style copy mode - plus tmux-style
 persistent sessions: a background server keeps every program running when you
 close the terminal or drop SSH, and `ananta` reattaches.
+
+## Preview
+
+[![ananta preview](https://img.youtube.com/vi/43ql4rlL2Ao/maxresdefault.jpg)](https://www.youtube.com/watch?v=43ql4rlL2Ao)
+
+*Watch the project preview on [YouTube](https://www.youtube.com/watch?v=43ql4rlL2Ao).*
 
 **Full documentation lives in the [wiki](https://github.com/dip-bash/ananta/wiki)**
 - key bindings, configuration reference, sessions, copy mode, status bar,
