@@ -13,7 +13,8 @@ close the terminal or drop SSH, and `ananta` reattaches.
 
 ## Preview
 
-[![ananta preview](https://img.youtube.com/vi/43ql4rlL2Ao/maxresdefault.jpg)](https://www.youtube.com/watch?v=43ql4rlL2Ao)
+[ananta.webm](https://github.com/user-attachments/assets/7750b10f-7d5d-48ae-876a-c686b9daf89f)
+
 
 *Watch the project preview on [YouTube](https://www.youtube.com/watch?v=43ql4rlL2Ao).*
 
