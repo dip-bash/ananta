@@ -1,0 +1,54 @@
+# Validate with `goreleaser check`; test a build with `goreleaser build --snapshot --clean`.
+# Docs: https://goreleaser.com/customization/builds/
+version: 2
+
+project_name: ananta
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ananta
+    main: ./cmd/ananta
+    binary: ananta
+    env:
+      - CGO_ENABLED=0
+    # Linux only for now: panes run on PTYs (creack/pty is POSIX).
+    goos:
+      - linux
+    # Mainstream arches first, then the rest - 64-bit CPUs only.
+    goarch:
+      - amd64
+      - arm64
+      - riscv64
+      - loong64
+      - ppc64le
+      - ppc64
+      - s390x
+      - mips64
+      - mips64le
+    ldflags:
+      - -s -w
+
+archives:
+  - formats: tar.gz
+    name_template: {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  # Release notes are auto-generated from git history: every commit since the
+  # previous tag (git log <prev-tag>..<new-tag>), sorted oldest first.
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"
+      - typo
+      - "^Merge pull request"
+      - "^Merge branch"
