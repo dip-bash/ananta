@@ -57,6 +57,9 @@ type View interface {
 	// Row returns row abs of history+screen (hold Lock); may be short or nil.
 	Row(abs int) []Glyph
 
+	// SetClipboardHandler registers a callback for OSC 52 clipboard writes.
+	SetClipboardHandler(f func(text string))
+
 	// Lock locks the state object's mutex.
 	Lock()
 

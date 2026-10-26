@@ -3,6 +3,8 @@ package input
 import (
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -333,13 +335,24 @@ func parseMouse(params []byte, final byte) *Mouse {
 	return &Mouse{Btn: b, X: x - 1, Y: y - 1, Press: final == 'M'}
 }
 
-// parseKeys splits a chunk of stdin into events. It never drops bytes:
-// anything it doesn't understand gets an empty Name and is forwarded verbatim.
+// ParseKeys splits a chunk of stdin into events, treating the chunk as
+// complete. It never drops bytes: anything it doesn't understand gets an empty
+// Name and is forwarded verbatim. For a live stream use an Assembler instead.
 func ParseKeys(buf []byte) []Key {
-	var out []Key
+	keys, _ := parseKeys(buf, false)
+	return keys
+}
+
+// parseKeys decodes buf. With partial set, an incomplete sequence at the very
+// end (lone ESC, unfinished CSI, half a UTF-8 character) is returned as rest
+// instead of being decoded, so the caller can wait for more bytes.
+func parseKeys(buf []byte, partial bool) (out []Key, rest []byte) {
 	i := 0
 	for i < len(buf) {
 		if buf[i] != 0x1b {
+			if partial && buf[i] >= 0x80 && !utf8.FullRune(buf[i:]) {
+				return out, buf[i:]
+			}
 			mask, key, size := plainKey(buf[i:])
 			name := ""
 			if key != "" {
@@ -350,6 +363,9 @@ func ParseKeys(buf []byte) []Key {
 			continue
 		}
 		if i+1 >= len(buf) {
+			if partial {
+				return out, buf[i:]
+			}
 			out = append(out, Key{Name: "esc", Raw: buf[i : i+1]})
 			i++
 			continue
@@ -361,6 +377,9 @@ func ParseKeys(buf []byte) []Key {
 				j++
 			}
 			if j >= len(buf) {
+				if partial {
+					return out, buf[i:]
+				}
 				out = append(out, Key{Raw: buf[i:]})
 				i = len(buf)
 				continue
@@ -379,6 +398,8 @@ func ParseKeys(buf []byte) []Key {
 				out = append(out, Key{Name: csiName(params, final), Raw: rawSeq})
 			}
 			i = j + 1
+		case n == 'O' && i+2 >= len(buf) && partial:
+			return out, buf[i:]
 		case n == 'O' && i+2 < len(buf):
 			out = append(out, Key{Name: ss3Name(buf[i+2]), Raw: buf[i : i+3]})
 			i += 3
@@ -386,6 +407,9 @@ func ParseKeys(buf []byte) []Key {
 			out = append(out, Key{Name: "esc", Raw: buf[i : i+1]})
 			i++
 		default:
+			if partial && n >= 0x80 && !utf8.FullRune(buf[i+1:]) {
+				return out, buf[i:]
+			}
 			mask, key, size := plainKey(buf[i+1:])
 			name := ""
 			if key != "" {
@@ -395,7 +419,89 @@ func ParseKeys(buf []byte) []Key {
 			i += 1 + size
 		}
 	}
-	return out
+	return out, nil
+}
+
+// Assembler turns a stream of arbitrarily chunked terminal input into keys.
+// A chunk boundary can fall in the middle of an escape sequence (common over
+// SSH, and with fast mouse movement); the unfinished tail is held back until
+// the rest arrives, or flushed as-is after a short pause (so a lone Escape
+// key still works).
+type Assembler struct {
+	out func([]Key)
+
+	mu     sync.Mutex
+	carry  []byte
+	gen    int
+	timer  *time.Timer
+	closed bool
+}
+
+// How long an unfinished tail is held back. A lone Escape (the Esc key, or
+// the first byte of a sequence cut right after it) must react quickly; an
+// unfinished "ESC [ ..." or half a UTF-8 character can safely wait for a slow
+// link to deliver the rest.
+const (
+	loneEscDelay = 40 * time.Millisecond
+	partialDelay = 400 * time.Millisecond
+)
+
+func NewAssembler(out func([]Key)) *Assembler { return &Assembler{out: out} }
+
+// Feed adds a chunk of input; complete keys are delivered via the callback.
+func (a *Assembler) Feed(data []byte) {
+	a.mu.Lock()
+	if a.closed {
+		a.mu.Unlock()
+		return
+	}
+	buf := append(append([]byte(nil), a.carry...), data...)
+	a.gen++
+	keys, rest := parseKeys(buf, true)
+	if len(rest) > 64 { // not a real sequence; don't hold garbage back
+		more, _ := parseKeys(rest, false)
+		keys, rest = append(keys, more...), nil
+	}
+	a.carry = append([]byte(nil), rest...)
+	if a.timer != nil {
+		a.timer.Stop()
+	}
+	if len(rest) > 0 {
+		gen := a.gen
+		delay := partialDelay
+		if len(rest) == 1 && rest[0] == 0x1b {
+			delay = loneEscDelay
+		}
+		a.timer = time.AfterFunc(delay, func() { a.flush(gen) })
+	}
+	a.mu.Unlock()
+	if len(keys) > 0 {
+		a.out(keys)
+	}
+}
+
+func (a *Assembler) flush(gen int) {
+	a.mu.Lock()
+	if a.closed || a.gen != gen || len(a.carry) == 0 {
+		a.mu.Unlock()
+		return
+	}
+	keys, _ := parseKeys(a.carry, false)
+	a.carry = nil
+	a.mu.Unlock()
+	if len(keys) > 0 {
+		a.out(keys)
+	}
+}
+
+// Close stops delivering keys.
+func (a *Assembler) Close() {
+	a.mu.Lock()
+	a.closed = true
+	if a.timer != nil {
+		a.timer.Stop()
+	}
+	a.mu.Unlock()
 }
 
 // Rune returns the printable character this key press produced, if any

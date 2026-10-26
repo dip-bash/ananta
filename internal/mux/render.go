@@ -3,12 +3,12 @@ package mux
 import (
 	"fmt"
 	"math"
-	"unicode/utf8"
 
 	"ananta/internal/vt"
 
 	"ananta/internal/pane"
 	"ananta/internal/screen"
+	"ananta/internal/width"
 )
 
 func mapColor(c vt.Color) screen.Col {
@@ -26,6 +26,11 @@ func glyphCell(g vt.Glyph) screen.Cell {
 	if c.R == 0 {
 		c.R = ' '
 	}
+	if g.Mode&vt.GlyphWide != 0 {
+		c.W = screen.WideLead
+	} else if g.Mode&vt.GlyphCont != 0 {
+		c.W = screen.WideCont
+	}
 	if g.Mode&1 != 0 {
 		c.A |= screen.AttrReverse
 	}
@@ -41,16 +46,7 @@ func glyphCell(g vt.Glyph) screen.Cell {
 	return c
 }
 
-func truncate(s string, n int) string {
-	if n <= 0 {
-		return ""
-	}
-	if utf8.RuneCountInString(s) <= n {
-		return s
-	}
-	r := []rune(s)
-	return string(r[:n-1]) + "…"
-}
+func truncate(s string, n int) string { return width.Truncate(s, n) }
 
 func (m *Mux) drawBox(scr *screen.Screen, x, y, w, h int, bc, bg screen.Col) {
 	bs := m.bs
@@ -136,6 +132,7 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 				sx0 := col * tcols / iw
 				sx1 := max(sx0+1, (col+1)*tcols/iw)
 				best := glyphCell(p.Term.Cell(sx0, sy0))
+				thumbFix(&best)
 				if best.R <= ' ' {
 				search:
 					for sy := sy0; sy < sy1 && sy < trows; sy++ {
@@ -143,6 +140,7 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 							g := p.Term.Cell(sx, sy)
 							if g.Char > ' ' {
 								c := glyphCell(g)
+								thumbFix(&c)
 								best.R, best.FG, best.A = c.R, c.FG, c.A
 								break search
 							}
@@ -223,7 +221,7 @@ func (m *Mux) render() {
 			if key := m.cfg.KeyFor("new_pane"); key != "" {
 				msg = "empty workspace — press " + key + " to open a terminal"
 			}
-			scr.Text(max(0, (m.W-utf8.RuneCountInString(msg))/2), top+rowH/2, truncate(msg, m.W), m.th.title, screen.ColDefault, 0)
+			scr.Text(max(0, (m.W-width.String(msg))/2), top+rowH/2, truncate(msg, m.W), m.th.title, screen.ColDefault, 0)
 		}
 		if showLabels && top-1 >= tt {
 			fg, bg := m.th.statusFG, m.th.statusBG
@@ -239,4 +237,16 @@ func (m *Mux) render() {
 		showCur = false
 	}
 	m.rend.Flush(cx, cy, showCur)
+}
+
+// thumbFix makes a cell safe for the scaled-down overview, where a
+// double-width pair can no longer be kept together.
+func thumbFix(c *screen.Cell) {
+	switch c.W {
+	case screen.WideLead:
+		c.R = '▪'
+	case screen.WideCont:
+		c.R = ' '
+	}
+	c.W = 0
 }

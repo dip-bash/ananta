@@ -1,26 +1,10 @@
 # ananta
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/dip-bash/img/0d793c5f53d623cf9834f91edffd9a3f24340232/ananta/Ananta.png" alt="ananta banner" width="100%">
-</div>
-
 A scrollable tiling terminal multiplexer in Go (niri / PaperWM style). Panes
 live in columns on an endless horizontal strip; focusing a column glides the
-viewport to it. Animated scrolling and zoom, an overview mode, configurable
-status bar, mouse, per-pane scrollback, vim-style copy mode - plus tmux-style
-persistent sessions: a background server keeps every program running when you
-close the terminal or drop SSH, and `ananta` reattaches.
-
-## Preview
-
-[ananta.webm](https://github.com/user-attachments/assets/7750b10f-7d5d-48ae-876a-c686b9daf89f)
-
-
-*Watch the project preview on [YouTube](https://www.youtube.com/watch?v=43ql4rlL2Ao).*
-
-**Full documentation lives in the [wiki](https://github.com/dip-bash/ananta/wiki)**
-- key bindings, configuration reference, sessions, copy mode, status bar,
-  architecture, FAQ and troubleshooting.
+viewport to it. Square borders, animated scrolling and zoom, overview,
+configurable status bar, mouse, per-pane scrollback, vim-style copy mode and
+tmux-style persistent sessions (detach / reattach).
 
 ## Build
 
@@ -29,74 +13,149 @@ close the terminal or drop SSH, and `ananta` reattaches.
     ./ananta --init         # writes ~/.config/ananta/config.toml
     ./ananta                # attach to session "main" (created on first use)
 
-`./ananta --print-config` prints every config option with comments.
+`./ananta --print-config` prints every option with comments.
 
-## Quick start
+## Sessions (detach / reattach)
 
-| Command | Does |
-|---|---|
-| `ananta` | attach to session "main", creating it if needed |
-| `ananta -s work` | same, under session name `work` |
-| `ananta new work` | create + attach (errors if it exists) |
-| `ananta attach work` | attach to an existing session |
-| `ananta ls` | list live sessions |
-| `ananta kill work` | end a session and everything in it |
-| `ananta local` | run in this terminal only, nothing survives it |
+A background server owns every pane, so your programs keep running when the
+terminal closes or SSH drops. The terminal you type in is just a client.
 
-Detach with **alt+d** - the session keeps running; reattach from anywhere.
-End a session with **alt+Q** or `ananta kill <name>`.
+    ananta                 attach to session "main" (creating it if needed)
+    ananta -s work         ... or any other name
+    ananta new work        create + attach (errors if it exists)
+    ananta attach work     attach to an existing session
+    ananta ls              list sessions (panes, attached / detached)
+    ananta kill work       end a session and everything in it
+    ananta local           no background session; closing the terminal ends it
 
-## The ten chords you need (leader = alt)
+Detach with `leader+d` (alt+d); attaching from a second terminal takes the
+session over (and re-lays it out for the new size). `leader+Q` ends the session.
+Sockets and server logs live in `$XDG_RUNTIME_DIR/ananta-<uid>/` (or the temp
+dir). The server reads the config when it starts: restart the session to apply
+config changes. Panes started later inherit the environment the server was
+launched with (as in tmux), so e.g. a changed SSH_AUTH_SOCK is not picked up.
+
+## Clipboard from inside panes
+
+Programs running in a pane can set your clipboard with OSC 52 (neovim, helix,
+tmux inside a pane, `printf '\e]52;c;%s\a' "$(printf hi | base64)"`). ananta
+forwards it to your terminal and to the native clipboard tool, so yanking in
+vim over SSH lands in your local clipboard. Disable with `app_clipboard = false`.
+New panes start in the directory of the pane you opened them from.
+
+## Scrollback
+
+Every pane keeps `scrollback_lines` (default 10000) of history, including long
+output such as `tree`. Scroll with the mouse wheel, `shift+pageup` /
+`shift+pagedown`, or copy mode (`alt+a`, then `gg`, `ctrl+u`, `/`-less vim
+motions all work across the whole history). Typing jumps back to the live
+screen. Dragging a selection past the top/bottom edge auto-scrolls. Full-screen
+apps (vim, less) use the alternate screen and have no history, as in other
+terminals; the wheel sends them arrow keys instead.
+
+## Project layout
+
+    cmd/ananta/main.go      flags, config loading, starts the app
+    internal/app/           "local" mode: runs the mux directly in this terminal
+    internal/config/        config structs, loader, default.toml (embedded), action table
+    internal/input/         key / mouse parsing, chord normalisation (leader expansion)
+    internal/screen/        cell buffer + diffing renderer
+    internal/width/         display width of text (CJK / emoji take 2 cells)
+    internal/vt/            terminal emulator: vendored vt10x (MIT) + scrollback ring
+    internal/pane/          one PTY + its emulator
+    internal/session/       persistent sessions: server (owns the mux), client, wire protocol
+    internal/stats/         cpu / mem / net / battery sampling, custom command widgets
+    internal/clipboard/     OSC 52 + native clipboard tools
+    internal/mux/           the multiplexer
+        mux.go              types, construction, event loop
+        layout.go           workspaces / columns / panes, scrolling math, animation
+        actions.go          what each action does          <- add new actions here
+        keyboard.go         key dispatch
+        mouse.go            clicks, drag selection, wheel, app mouse forwarding
+        render.go           frame composition, overview thumbnails
+        bar.go              status bar + widgets            <- add new widgets here
+        help.go             scrollable help overlay
+        selection.go        selection model, text extraction, copy / paste
+        scrollback.go       logical rows (history + screen), viewport anchoring
+        copymode.go         vim visual copy mode
+
+Adding an action: add a line to `ActionInfo` (internal/config/actions.go), a
+`case` in `run` (internal/mux/actions.go), and bind it in `default.toml`.
+The help screen picks it up automatically.
+
+## Leader key
+
+Default shortcuts are written `leader+<key>`. Change one line to move them all:
+
+    leader = "alt"        # or "super", "ctrl", "ctrl+alt", ...
+
+`super` / `ctrl` need a terminal with the kitty keyboard protocol (kitty, foot,
+wezterm, ghostty, alacritty >= 0.13, ...). Plain terminals cannot send super,
+and ctrl+h/i/j/m collide with backspace/tab/enter, so `alt` is the safe default.
+
+## Keys (leader = alt)
 
 | Key | Action |
 |---|---|
-| `alt+h j k l` / arrows | focus left / right / down / up |
-| `alt+enter` / `alt+s` | new column / stack pane below |
-| `alt+w` | close pane |
-| `alt+H J K L` | move column / pane |
-| `alt+1..9` | workspace |
-| `alt+o` / `alt+f` | overview / maximize column |
-| `alt+a` | copy mode (vim motions over all history) |
-| `alt+p` | paste |
-| `alt+d` / `alt+Q` | detach / quit |
-| `alt+/` | scrollable help, generated from your config |
+| leader+h/j/k/l, leader+arrows | focus left / down / up / right |
+| leader+H/J/K/L | move column / pane |
+| leader+enter / leader+s | new column / stack new pane below |
+| leader+w | close pane |
+| leader+, / leader+. | stack into left column / pop out |
+| leader+r / f / - / = | cycle width / maximize / narrow / widen |
+| leader+c | toggle always-centered <-> PaperWM-style scrolling |
+| leader+C | center the focused column once |
+| leader+o | overview |
+| leader+b | show / hide status bar |
+| leader+p | paste last copied text |
+| leader+1..9 | workspace (leader+! @ # move pane to 1-3) |
+| leader+/ | help (scrollable, generated from your config) |
+| leader+Q | quit |
+| alt+a | vim visual copy mode |
+| leader+d | detach (session keeps running) |
+| shift+pageup / shift+pagedown | scroll through history |
 
-Everything else is forwarded to the app. All bindings live in
-`~/.config/ananta/config.toml` - see
-[Key Bindings](https://github.com/dip-bash/ananta/wiki/Key-Bindings) for the
-complete table and [Configuration](https://github.com/dip-bash/ananta/wiki/Configuration)
-for every option (leader key, themes, status-bar widgets, prefix mode, ...).
+## Status bar
 
-## Docs
+    [bar]
+    position = "bottom"      # top | bottom | hidden
+    left   = ["workspaces", "columns", "mode"]
+    center = ["message"]
+    right  = ["cpu", "mem", "net", "battery", "time", "help"]
+    time_format = "15:04"    # Go layout
 
-| Wiki page | Covers |
-|---|---|
-| [Home](https://github.com/dip-bash/ananta/wiki/Home) | overview of all pages |
-| [Getting Started](https://github.com/dip-bash/ananta/wiki/Getting-Started) | first run, detach, reattach |
-| [Key Bindings](https://github.com/dip-bash/ananta/wiki/Key-Bindings) | every default chord, rebinding, prefix mode |
-| [Sessions](https://github.com/dip-bash/ananta/wiki/Sessions) | server model, `ls` / `kill`, sockets and logs |
-| [Workspaces and Layout](https://github.com/dip-bash/ananta/wiki/Workspaces-and-Layout) | columns, stacks, scroll modes, overview |
-| [Configuration](https://github.com/dip-bash/ananta/wiki/Configuration) | the full `config.toml` reference |
-| [Status Bar](https://github.com/dip-bash/ananta/wiki/Status-Bar) | built-in + custom shell widgets |
-| [Scrollback](https://github.com/dip-bash/ananta/wiki/Scrollback) | history, wheel, anchoring |
-| [Copy Mode](https://github.com/dip-bash/ananta/wiki/Copy-Mode) | vim-style selection across all history |
-| [Mouse and Selection](https://github.com/dip-bash/ananta/wiki/Mouse-and-Selection) | click / drag / wheel behavior |
-| [Copy and Paste](https://github.com/dip-bash/ananta/wiki/Copy-and-Paste) | OSC 52 + native clipboard tools |
-| [Architecture](https://github.com/dip-bash/ananta/wiki/Architecture) | package map, wire protocol, hacking guide |
-| [FAQ](https://github.com/dip-bash/ananta/wiki/FAQ) / [Troubleshooting](https://github.com/dip-bash/ananta/wiki/Troubleshooting) | common questions and fixes |
-| [Roadmap and Limitations](https://github.com/dip-bash/ananta/wiki/Roadmap-and-Limitations) | known gaps, planned work |
+Built-in widgets: workspaces columns mode message title help cpu mem net
+battery load time date host user. Anything else is a shell command:
 
-## Status
+    [bar.widgets.weather]
+    command  = "curl -s 'wttr.in/?format=%t'"
+    interval = 600
+    prefix   = "☀ "
 
-Linux-first (macOS builds; the system-stat bar widgets hide where `/proc`
-doesn't exist). Not included yet: wide (CJK) glyphs, re-wrapped history on
-resize, multiple attached clients per session - see the
-[roadmap](https://github.com/dip-bash/ananta/wiki/Roadmap-and-Limitations).
+then add `"weather"` to a list. On narrow screens right-hand widgets drop out
+from the left. cpu/mem/net/battery read /proc and /sys (Linux); where those are
+unavailable (macOS, locked-down Android) they hide, and custom commands still
+work (e.g. `termux-battery-status`).
 
-## Contributing
+## Mouse and selection
 
-`make test && make vet` before sending a patch. A guided tour of the source
-lives in [Architecture](https://github.com/dip-bash/ananta/wiki/Architecture):
-new actions go in `internal/config/actions.go` + `internal/mux/actions.go`,
-new bar widgets in `internal/mux/bar.go`, key parsing in
-`internal/input/keys.go`.
+- Click a pane to focus it. In the overview a click focuses, zooms in and centers.
+- Drag inside a pane to select text. The selection never leaves that pane (no
+  borders, no neighbours) and is copied on release (OSC 52 + wl-copy / xclip /
+  xsel / termux-clipboard-set / pbcopy when installed).
+- Apps that use the mouse themselves (vim, htop) keep receiving it; hold shift
+  to force ananta's selection over such an app.
+- Wheel: scrolls full-screen apps (less, vim); switches workspaces in the overview.
+
+## Copy mode (alt+a)
+
+Moves a cursor over the pane's screen. `hjkl` `w b e` `W B E` `0 ^ $` `gg G`
+`H M L` `{ }` `f F t T ; ,` `ctrl+u/d/f/b`, counts (`3j`); `v` / `V` /
+`ctrl+v` start char / line / block selection, `o` swaps ends, `y` or `Enter`
+copies, `Esc` leaves. It works over the whole scrollback, not just the screen.
+
+## Not included yet
+
+History is not re-wrapped when a pane is resized; one attached client per
+session at a time; programs' OSC 10/11 colour queries are not answered;
+combining marks are not drawn (the base character is).

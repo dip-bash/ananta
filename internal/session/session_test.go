@@ -1,13 +1,18 @@
 package session
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/creack/pty"
+
 	"ananta/internal/config"
+	"ananta/internal/mux"
 )
 
 // readUntil reads output frames until want appears (or a non-output frame of
@@ -49,7 +54,18 @@ func attach(t *testing.T, name string) net.Conn {
 	return conn
 }
 
+func skipWithoutPTY(t *testing.T) {
+	t.Helper()
+	m, s, err := pty.Open()
+	if err != nil {
+		t.Skip("no PTY available in this environment: ", err)
+	}
+	m.Close()
+	s.Close()
+}
+
 func TestDetachKeepsPanesAlive(t *testing.T) {
+	skipWithoutPTY(t)
 	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	t.Setenv("SHELL", "/bin/sh")
 	cfg, err := config.Load("")
@@ -116,6 +132,31 @@ func TestFrameRoundTripAndNames(t *testing.T) {
 	for name, ok := range map[string]bool{"main": true, "work-1.a": true, "": false, "a/b": false, "../x": false} {
 		if ValidName(name) != ok {
 			t.Errorf("ValidName(%q) != %v", name, ok)
+		}
+	}
+}
+
+// A kill must not be lost when the work queue is momentarily full.
+func TestStopSurvivesFullQueue(t *testing.T) {
+	cfg, _ := config.Load("")
+	s := &Server{
+		post: make(chan func(), 2),
+		stop: make(chan struct{}),
+		m:    mux.New(cfg, bufio.NewWriter(io.Discard)),
+	}
+	s.post <- func() {}
+	s.post <- func() {} // queue is now full
+	s.requestStop()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case fn := <-s.post:
+			fn()
+			if s.m.PaneCount() == 0 && s.m.Quitting() {
+				return
+			}
+		case <-deadline:
+			t.Fatal("quit was dropped")
 		}
 	}
 }

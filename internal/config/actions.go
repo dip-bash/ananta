@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"ananta/internal/width"
 	"sort"
 	"strconv"
 	"strings"
@@ -69,16 +69,7 @@ func (c *Config) KeyFor(action string) string {
 	return best
 }
 
-func truncate(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	if n <= 1 {
-		return string(r[:max(n, 0)])
-	}
-	return string(r[:n-1]) + "…"
-}
+func truncate(s string, n int) string { return width.Truncate(s, n) }
 
 // HelpLines builds the help screen from the live keymap (one line per
 // action), so it always reflects the user's config.
@@ -124,7 +115,7 @@ func (c *Config) HelpLines() []string {
 	keystr := make([]string, len(es))
 	for i, e := range es {
 		keystr[i] = strings.Join(e.keys, ", ")
-		kw = max(kw, len([]rune(keystr[i])))
+		kw = max(kw, width.String(keystr[i]))
 	}
 	kw = min(kw, 34)
 	var out []string
@@ -140,7 +131,8 @@ func (c *Config) HelpLines() []string {
 				desc += ": " + e.arg
 			}
 		}
-		out = append(out, fmt.Sprintf("%-*s  %s", kw, truncate(keystr[i], kw), desc))
+		k := truncate(keystr[i], kw)
+		out = append(out, k+strings.Repeat(" ", max(0, kw-width.String(k)))+"  "+desc)
 	}
 	if key := c.KeyFor("copy_mode"); key != "" {
 		out = append(out, "",

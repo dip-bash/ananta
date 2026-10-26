@@ -53,6 +53,7 @@ func EnsureServer(name, cfgPath string) error {
 		cmd.Stdout, cmd.Stderr = logf, logf
 		defer logf.Close()
 	}
+	cmd.Dir = "/"                                        // don't pin the directory ananta was launched from (it may be unmounted or deleted)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // survive the terminal going away
 	if err := cmd.Start(); err != nil {
 		return err
@@ -82,7 +83,8 @@ func Attach(name string) error {
 	if err != nil {
 		return err
 	}
-	hello, _ := json.Marshal(Size{Cols: w, Rows: h})
+	cwd, _ := os.Getwd()
+	hello, _ := json.Marshal(Size{Cols: w, Rows: h, Cwd: cwd})
 	if err := writeFrame(conn, MsgHello, hello); err != nil {
 		return err
 	}

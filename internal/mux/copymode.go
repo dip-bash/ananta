@@ -59,7 +59,7 @@ func (m *Mux) enterCopyMode() {
 
 func isBlankRow(row []rune) bool {
 	for _, r := range row {
-		if r != ' ' {
+		if r != ' ' && r != 0 {
 			return false
 		}
 	}
@@ -68,7 +68,7 @@ func isBlankRow(row []rune) bool {
 
 func firstNonBlank(row []rune) int {
 	for i, r := range row {
-		if r != ' ' {
+		if r != ' ' && r != 0 {
 			return i
 		}
 	}
@@ -77,7 +77,7 @@ func firstNonBlank(row []rune) int {
 
 func lastNonBlank(row []rune) int {
 	for i := len(row) - 1; i >= 0; i-- {
-		if row[i] != ' ' {
+		if row[i] != ' ' && row[i] != 0 {
 			return i
 		}
 	}
@@ -100,11 +100,16 @@ func wordMove(g *grid, x, y *int, kind byte) {
 	w := g.cols + 1
 	limit := g.total * w
 	big := kind == 'W' || kind == 'B' || kind == 'E'
-	cl := func(i int) int {
+	var cl func(i int) int
+	cl = func(i int) int {
 		if i%w == g.cols {
 			return 0
 		}
-		return charClass(g.row(i / w)[i%w], big)
+		r := g.row(i / w)[i%w]
+		if r == 0 && i%w > 0 { // second half of a wide character: same class as its first half
+			return cl(i - 1)
+		}
+		return charClass(r, big)
 	}
 	idx := *y*w + *x
 	switch kind {

@@ -1,5 +1,7 @@
 package vt
 
+import "ananta/internal/width"
+
 func isControlCode(c rune) bool {
 	return c < 0x20 || c == 0177
 }
@@ -13,20 +15,47 @@ func (t *State) parse(c rune) {
 	}
 	// TODO: update selection; see st.c:2450
 
+	w := width.Rune(c)
+	if t.cur.Attr.Mode&attrGfx != 0 {
+		w = 1 // line-drawing set: always one cell
+	}
+	if w == 0 {
+		return // combining mark / variation selector / ZWJ: nothing to draw
+	}
+
 	if t.mode&ModeWrap != 0 && t.cur.State&cursorWrapNext != 0 {
 		t.lines[t.cur.Y][t.cur.X].Mode |= attrWrap
 		t.newline(true)
 	}
-
-	if t.mode&ModeInsert != 0 && t.cur.X+1 < t.cols {
-		// TODO: move shiz, look at st.c:2458
-		t.logln("insert mode not implemented")
+	if w == 2 && t.cur.X+1 >= t.cols { // no room for a wide character on this row
+		if t.mode&ModeWrap == 0 {
+			return
+		}
+		t.clearHalf(t.cur.X, t.cur.Y)
+		t.lines[t.cur.Y][t.cur.X].Char = ' '
+		t.lines[t.cur.Y][t.cur.X].Mode |= attrWrap
+		t.newline(true)
 	}
 
-	t.setChar(c, &t.cur.Attr, t.cur.X, t.cur.Y)
-	if t.cur.X+1 < t.cols {
-		t.moveTo(t.cur.X+1, t.cur.Y)
+	if t.mode&ModeInsert != 0 { // IRM: push the rest of the line right
+		t.insertBlanks(w)
+	}
+
+	x, y := t.cur.X, t.cur.Y
+	t.clearHalf(x, y)
+	if w == 2 {
+		t.clearHalf(x+1, y)
+	}
+	t.setChar(c, &t.cur.Attr, x, y)
+	if w == 2 {
+		t.lines[y][x].Mode |= attrWide
+		t.lines[y][x+1] = Glyph{Char: 0, Mode: attrWDummy, FG: t.lines[y][x].FG, BG: t.lines[y][x].BG}
+		t.dirty[y] = true
+	}
+	if x+w < t.cols {
+		t.moveTo(x+w, y)
 	} else {
+		t.moveTo(t.cols-1, y)
 		t.cur.State |= cursorWrapNext
 	}
 }

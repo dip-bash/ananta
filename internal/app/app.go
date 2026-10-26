@@ -17,17 +17,19 @@ import (
 	"ananta/internal/mux"
 )
 
-func readInput(keys chan<- []input.Key) {
+// readInput feeds terminal input to the mux, reassembling escape sequences
+// that a read boundary cut in half. onEOF runs when stdin closes.
+func readInput(keys chan<- []input.Key, onEOF func()) {
+	asm := input.NewAssembler(func(ks []input.Key) { keys <- ks })
 	buf := make([]byte, 8192)
 	for {
 		n, err := os.Stdin.Read(buf)
 		if n > 0 {
-			data := make([]byte, n)
-			copy(data, buf[:n])
-			keys <- input.ParseKeys(data)
+			asm.Feed(buf[:n])
 		}
 		if err != nil {
-			close(keys)
+			asm.Close()
+			onEOF()
 			return
 		}
 	}
@@ -71,9 +73,9 @@ func Run(cfg *config.Config) error {
 	m.SetSize(w, h)
 	m.Start()
 
-	keys := make(chan []input.Key, 16)
-	go readInput(keys)
+	keys := make(chan []input.Key, 256)
 	post := make(chan func(), 16)
+	go readInput(keys, func() { post <- m.Quit })
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)
 	stop := make(chan os.Signal, 1)

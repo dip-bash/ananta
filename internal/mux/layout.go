@@ -89,8 +89,23 @@ func (m *Mux) newColumnFor(ws *Workspace, p *pane.Pane) {
 
 func (m *Mux) spawn(cmdline string) (*pane.Pane, error) {
 	m.nextID++
+	// new panes start where the focused pane currently is (like tmux's
+	// pane_current_path), else in the session's start directory
+	dir := m.startDir
+	if fp := m.focusedPane(); fp != nil {
+		if d := fp.Cwd(); d != "" {
+			dir = d
+		}
+	}
+	var clip chan<- string
+	if m.cfg.AppClipboard {
+		clip = m.clipCh
+	}
 	w := int(m.cfg.DefaultColumnWidth*float64(m.W)) - 2
-	return pane.New(m.nextID, m.cfg.Shell, cmdline, w, m.tileH()-2, m.cfg.ScrollbackLines, m.dirty, m.exits)
+	return pane.New(pane.Options{
+		ID: m.nextID, Shell: m.cfg.Shell, Cmdline: cmdline, Dir: dir,
+		Cols: w, Rows: m.tileH() - 2, Scrollback: m.cfg.ScrollbackLines,
+	}, m.dirty, m.exits, clip)
 }
 
 func (m *Mux) newPane(cmdline string) {

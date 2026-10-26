@@ -18,6 +18,14 @@ const (
 	attrItalic
 	attrBlink
 	attrWrap
+	attrWide   // first cell of a double-width character
+	attrWDummy // second cell of a double-width character
+)
+
+// Mode bits of Glyph for double-width characters.
+const (
+	GlyphWide = attrWide
+	GlyphCont = attrWDummy
 )
 
 const (
@@ -91,7 +99,8 @@ type State struct {
 	altLines      []line
 	sb            []line // scrollback: lines that scrolled off the top of the primary screen
 	sbMax         int
-	dirty         []bool // line dirtiness
+	onClipboard   func(string) // OSC 52 set-clipboard requests from the program
+	dirty         []bool       // line dirtiness
 	anydirty      bool
 	cur, curSaved Cursor
 	top, bottom   int // scroll limits
@@ -340,11 +349,11 @@ func (t *State) resize(cols, rows int) bool {
 	copy(t.tabs, tabs)
 	if cols > t.cols {
 		i := t.cols - 1
-		for i > 0 && !tabs[i] {
+		for i > 0 && !t.tabs[i] {
 			i--
 		}
-		for i += tabspaces; i < len(tabs); i += tabspaces {
-			tabs[i] = true
+		for i += tabspaces; i < len(t.tabs); i += tabspaces {
+			t.tabs[i] = true
 		}
 	}
 
@@ -603,7 +612,6 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				t.modMode(set, ModeKeyboardLock)
 			case 4: // IRM - insertion-replacement
 				t.modMode(set, ModeInsert)
-				t.logln("insert mode not implemented")
 			case 12: // SRM - send/receive
 				t.modMode(set, ModeEcho)
 			case 20: // LNM - linefeed/newline
@@ -830,5 +838,25 @@ func (t *State) pushHistory(lines []line) {
 		if cap(t.sb) > 2*t.sbMax+1024 {
 			t.sb = append([]line(nil), t.sb...)
 		}
+	}
+}
+
+// SetClipboardHandler registers a callback for OSC 52 clipboard writes made
+// by the program running in the terminal. It runs with the state lock held,
+// so it must not block.
+func (t *State) SetClipboardHandler(f func(text string)) { t.onClipboard = f }
+
+// clearHalf blanks the other half of a double-width character if the cell
+// at (x, y) is part of one (called before overwriting that cell).
+func (t *State) clearHalf(x, y int) {
+	if x < 0 || x >= t.cols {
+		return
+	}
+	g := t.lines[y][x]
+	switch {
+	case g.Mode&attrWide != 0 && x+1 < t.cols:
+		t.lines[y][x+1] = Glyph{Char: ' ', FG: g.FG, BG: g.BG}
+	case g.Mode&attrWDummy != 0 && x > 0:
+		t.lines[y][x-1] = Glyph{Char: ' ', FG: g.FG, BG: g.BG}
 	}
 }

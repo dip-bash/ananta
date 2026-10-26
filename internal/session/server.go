@@ -56,7 +56,7 @@ func (w clientWriter) Write(p []byte) (int, error) {
 		return len(p), nil
 	}
 	if err := c.send(MsgOutput, p); err != nil {
-		go w.s.drop(c)
+		w.s.drop(c) // clears s.cur at once, so later chunks are discarded, not retried
 	}
 	return len(p), nil
 }
@@ -77,11 +77,15 @@ func (s *Server) drop(c *client) {
 	s.mu.Unlock()
 	_ = c.conn.Close()
 	if was {
-		s.post <- func() {
-			if s.current() == nil {
-				s.m.SetAttached(false)
+		// from a goroutine: drop can run on the mux goroutine (while drawing),
+		// which must never block on its own work queue
+		go func() {
+			s.post <- func() {
+				if s.current() == nil {
+					s.m.SetAttached(false)
+				}
 			}
-		}
+		}()
 	}
 }
 
@@ -102,10 +106,9 @@ func (s *Server) detachCurrent() {
 
 func (s *Server) requestStop() {
 	s.stopOnce.Do(func() { close(s.stop) })
-	select {
-	case s.post <- s.m.Quit:
-	default:
-	}
+	// a blocking send (from a goroutine): if the queue is momentarily full the
+	// quit waits its turn instead of being dropped
+	go func() { s.post <- s.m.Quit }()
 }
 
 func (s *Server) handle(conn net.Conn) {
@@ -161,9 +164,14 @@ func (s *Server) attach(conn net.Conn, sz Size) {
 	_ = c.send(MsgSetup, []byte(s.setup+"\x00"+s.teardown))
 	s.firstOnce.Do(func() { s.first <- sz })
 	s.post <- func() {
+		if sz.Cwd != "" {
+			s.m.SetStartDir(sz.Cwd)
+		}
 		s.m.SetAttached(true)
 		s.m.SetSize(sz.Cols, sz.Rows)
 	}
+	asm := input.NewAssembler(func(ks []input.Key) { s.keys <- ks })
+	defer asm.Close()
 
 	for {
 		typ, payload, err := readFrame(conn)
@@ -172,7 +180,7 @@ func (s *Server) attach(conn net.Conn, sz Size) {
 		}
 		switch typ {
 		case MsgInput:
-			s.keys <- input.ParseKeys(payload)
+			asm.Feed(payload) // holds back a sequence cut in half by the network
 		case MsgResize:
 			var sz Size
 			if json.Unmarshal(payload, &sz) == nil && sz.Cols > 0 && sz.Rows > 1 {
@@ -217,7 +225,7 @@ func Serve(cfg *config.Config, name string) error {
 	s := &Server{
 		name:  name,
 		ln:    ln,
-		keys:  make(chan []input.Key, 64),
+		keys:  make(chan []input.Key, 1024),
 		post:  make(chan func(), 64),
 		first: make(chan Size, 1),
 		stop:  make(chan struct{}),
@@ -234,6 +242,7 @@ func Serve(cfg *config.Config, name string) error {
 
 	select {
 	case sz := <-s.first:
+		s.m.SetStartDir(sz.Cwd)
 		s.m.SetSize(sz.Cols, sz.Rows)
 	case <-s.stop:
 		return nil

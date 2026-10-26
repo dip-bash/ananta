@@ -31,7 +31,12 @@ const (
 
 const maxFrame = 16 << 20
 
-type Size struct{ Cols, Rows int }
+// Size is sent by a client when it attaches or resizes. Cwd (attach only) is
+// the directory the client was started in.
+type Size struct {
+	Cols, Rows int
+	Cwd        string `json:",omitempty"`
+}
 
 type Info struct {
 	Name     string
