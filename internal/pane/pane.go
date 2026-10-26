@@ -39,9 +39,10 @@ type Pane struct {
 // Options describes the child to start.
 type Options struct {
 	ID         int
-	Shell      string // "" = $SHELL, then sh
-	Cmdline    string // "" = interactive shell; otherwise run via sh -c
-	Dir        string // working directory ("" = inherit)
+	Shell      string   // "" = $SHELL, then sh
+	Cmdline    string   // "" = interactive shell; otherwise run via sh -c
+	Dir        string   // working directory ("" = inherit)
+	Env        []string // extra environment variables (KEY=value)
 	Cols, Rows int
 	Scrollback int
 }
@@ -81,6 +82,7 @@ func New(o Options, dirty chan<- struct{}, exits chan<- *Pane, clip chan<- strin
 		}
 	}
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "ANANTA=1")
+	cmd.Env = append(cmd.Env, o.Env...)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 	if err != nil {
 		return nil, err

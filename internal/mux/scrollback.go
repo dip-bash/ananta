@@ -7,7 +7,7 @@ import (
 
 // Rows of a pane are addressed in "logical" coordinates: 0 is the oldest
 // history line, and the live screen follows the history. In the alternate
-// screen (vim, less, ...) there is no history, so logical row 0 is the top of
+// screen (editors, pagers, ...) there is no history, so logical row 0 is the top of
 // the live screen.
 
 type paneView struct {

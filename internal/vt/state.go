@@ -785,7 +785,7 @@ func (t *State) String() string {
 	return string(view)
 }
 
-// ---- scrollback (added to the original vt10x) ---------------------------
+// ---- scrollback --------------------------------------------------------
 
 // SetScrollbackLimit sets the maximum number of history lines (0 disables).
 func (t *State) SetScrollbackLimit(n int) {

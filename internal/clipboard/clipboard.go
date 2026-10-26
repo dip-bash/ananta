@@ -23,14 +23,6 @@ var copyTools = [][]string{
 	{"pbcopy"},
 }
 
-var pasteTools = [][]string{
-	{"wl-paste", "--no-newline"},
-	{"xclip", "-selection", "clipboard", "-out"},
-	{"xsel", "--clipboard", "--output"},
-	{"termux-clipboard-get"},
-	{"pbpaste"},
-}
-
 // CopyNative pipes text into the first available clipboard tool and reports
 // whether one was found.
 func CopyNative(text string) bool {
@@ -45,17 +37,4 @@ func CopyNative(text string) bool {
 		}
 	}
 	return false
-}
-
-// Paste reads the system clipboard ("" if no tool is available).
-func Paste() string {
-	for _, t := range pasteTools {
-		if _, err := exec.LookPath(t[0]); err != nil {
-			continue
-		}
-		if out, err := exec.Command(t[0], t[1:]...).Output(); err == nil {
-			return string(out)
-		}
-	}
-	return ""
 }

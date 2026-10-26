@@ -5,19 +5,18 @@
 
 # The modifier used by every "leader+..." shortcut below.
 #   "alt" (default) | "ctrl" | "super" | "ctrl+alt" | ...
-# "super" and "ctrl" need a terminal that speaks the kitty keyboard protocol
-# (kitty, foot, wezterm, ghostty, alacritty >= 0.13, iTerm2, ...). Plain
-# terminals can't send super, and ctrl+h/i/j/m are the same bytes as
-# backspace/tab/enter, so "alt" is the safe choice there.
+# "super" and "ctrl" need a terminal that supports the extended (CSI-u)
+# keyboard protocol. Plain terminals can't send super, and ctrl+h/i/j/m are the
+# same bytes as backspace/tab/enter, so "alt" is the safe choice there.
 leader = "alt"
-kitty_keyboard = "auto"    # "auto" (on for super/ctrl leaders) | "on" | "off"
+extended_keys = "auto"     # "auto" (on for super/ctrl leaders) | "on" | "off"
 
 shell = ""                 # empty = $SHELL
 mouse = true               # click to focus, drag to select, wheel, overview clicks
 animate = true             # smooth scrolling / zoom / column resize
 animation_speed = 18.0     # higher = snappier
 fps = 60
-scroll_mode = "fit"        # "fit": PaperWM-style, scroll just enough to show the focused column
+scroll_mode = "fit"        # "fit": scroll just enough to show the focused column
                            # "center": always keep the focused column centered
                            # (toggle at runtime with the center_mode action)
 overview_scale = 0.3       # how far the overview zooms out (0.15 - 0.6)
@@ -26,10 +25,16 @@ column_widths = [0.33, 0.5, 0.66, 1.0]   # presets used by cycle_width (fraction
 default_column_width = 0.5
 resize_step = 0.05         # grow / shrink step (fraction of screen)
 quit_on_last_exit = true
-app_clipboard = true       # let programs in a pane set the clipboard (OSC 52: vim, neovim, helix, tmux...)
+app_clipboard = true       # let programs in a pane set the clipboard (OSC 52)
 scrollback_lines = 10000   # history kept per pane (0 = off); wheel / shift+pageup / copy mode read it
 
-# Optional tmux-style prefix. When set, keys in [prefix_keys] work after it.
+# The wallpaper: a program that runs (display-only) behind your panes and shows
+# wherever no pane is. "default" uses wallpaper.toml next to this file (or the
+# built-in clock if it doesn't exist); or give another file name from this same
+# folder; "none" turns it off. See wallpaper.toml for how to write one.
+wallpaper = "default"
+
+# Optional prefix key. When set, keys in [prefix_keys] work after it.
 prefix = ""                # e.g. "ctrl+b"
 
 # ---------------------------------------------------------------- status bar
@@ -38,10 +43,10 @@ position = "bottom"        # "top" | "bottom" | "hidden"   (toggle_bar action fl
 interval = 1.0             # seconds between cpu / mem / net / clock refreshes
 separator = " │ "
 # Widgets are drawn in the order listed. Built-ins:
-#   workspaces columns mode message title help
+#   session workspaces columns mode message title help
 #   cpu mem net battery load time date host user
 # or the name of any custom widget defined under [bar.widgets.NAME] below.
-left   = ["workspaces", "columns", "mode"]
+left   = ["session", "workspaces", "columns", "mode"]
 center = ["message"]
 right  = ["cpu", "mem", "net", "battery", "time", "help"]
 time_format = "15:04"      # Go layout: "15:04:05", "3:04 PM", "Mon 15:04"
@@ -78,13 +83,11 @@ selection_fg = "#eceff4"
 #   new_pane_below [command]  stack a new pane under the focused one
 #   close_pane stack_left unstack
 #   grow shrink cycle_width maximize
-#   center_column             center the focused column once
-#   center_mode               toggle always-centered <-> PaperWM-style fit
+#   center_mode               toggle always-centered <-> scroll-only-as-needed
 #   first_column last_column
 #   overview                  bird's-eye view of every workspace
 #   workspace_next workspace_prev goto_workspace N move_to_workspace N
-#   copy_mode                 vim-style visual copy mode in the focused pane
-#   paste                     paste the last copied text into the focused pane
+#   copy_mode                 keyboard copy mode in the focused pane
 #   scroll_up scroll_down     scroll the focused pane through its history
 #   detach                    leave the session running in the background
 #   toggle_bar help quit
@@ -115,10 +118,8 @@ selection_fg = "#eceff4"
 "leader+-" = "shrink"
 "leader+=" = "grow"
 "leader+c" = "center_mode"
-"leader+C" = "center_column"
 "leader+o" = "overview"
 "leader+b" = "toggle_bar"
-"leader+p" = "paste"
 "leader+home" = "first_column"
 "leader+end" = "last_column"
 "leader+pagedown" = "workspace_next"
@@ -135,9 +136,15 @@ selection_fg = "#eceff4"
 "leader+!" = "move_to_workspace 1"
 "leader+@" = "move_to_workspace 2"
 "leader+#" = "move_to_workspace 3"
+"leader+$" = "move_to_workspace 4"
+"leader+%" = "move_to_workspace 5"
+"leader+^" = "move_to_workspace 6"
+"leader+&" = "move_to_workspace 7"
+"leader+*" = "move_to_workspace 8"
+"leader+(" = "move_to_workspace 9"
 "leader+/" = "help"
 "leader+Q" = "quit"
-# explicit chord (not tied to the leader): enter vim visual copy mode
+# explicit chord (not tied to the leader): enter copy mode
 "alt+a" = "copy_mode"
 # scrolling back through history (also: mouse wheel, copy mode)
 "shift+pageup" = "scroll_up"

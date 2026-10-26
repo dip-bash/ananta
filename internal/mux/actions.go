@@ -101,12 +101,10 @@ func (m *Mux) run(a config.Action) {
 				col.WFrac = m.cfg.DefaultColumnWidth
 			}
 		}
-	case "center_column":
-		m.centerNow(ws)
 	case "center_mode":
 		if m.scrollMode == "center" {
 			m.scrollMode = "fit"
-			m.notify("scrolling: PaperWM style (fit)")
+			m.notify("scrolling: fit")
 		} else {
 			m.scrollMode = "center"
 			m.notify("scrolling: always centered")
@@ -130,8 +128,6 @@ func (m *Mux) run(a config.Action) {
 		m.newColumnFor(m.ws[n-1], p)
 	case "copy_mode":
 		m.enterCopyMode()
-	case "paste":
-		m.paste()
 	case "scroll_up", "scroll_down":
 		if p := m.focusedPane(); p != nil {
 			n := max(1, p.Rows/2)

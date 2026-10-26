@@ -125,27 +125,9 @@ func (m *Mux) copyText(text string) {
 	if text == "" {
 		return
 	}
-	m.clip = text
 	if m.attached { // nobody to send the escape to while detached
 		m.rend.Raw(clipboard.OSC52(text))
 	}
 	go clipboard.CopyNative(text)
 	m.notify(fmt.Sprintf("copied %d chars", utf8.RuneCountInString(text)))
-}
-
-func (m *Mux) paste() {
-	p := m.focusedPane()
-	if p == nil || p.Dead {
-		return
-	}
-	text := m.clip
-	if text == "" {
-		text = clipboard.Paste()
-	}
-	if text == "" {
-		m.notify("nothing to paste")
-		return
-	}
-	text = strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\n", "\r")
-	_, _ = p.Write([]byte(text))
 }

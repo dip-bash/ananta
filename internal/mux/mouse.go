@@ -226,7 +226,7 @@ func (m *Mux) leftPress(ev *input.Mouse) {
 	shift := ev.Btn&4 != 0
 	appMouse := paneMode(h.p)&vt.ModeMouseMask != 0
 
-	if appMouse && !shift { // the app handles its own mouse (vim, htop, ...)
+	if appMouse && !shift { // the app handles its own mouse
 		if m.isFocused(h) {
 			m.forwardMouse(h, ev)
 		} else {

@@ -29,8 +29,9 @@ commands:
   ls             list sessions
   kill [name]    end a session
   local          run in this terminal only (nothing survives closing it)
-  init           write the default config to ~/.config/ananta/config.toml
+  init           write config.toml and wallpaper.toml to ~/.config/ananta/
   print-config   print the default config
+  print-wallpaper  print the default wallpaper file
 `
 
 func main() {
@@ -62,6 +63,8 @@ func main() {
 	switch cmd {
 	case "print-config":
 		fmt.Print(config.Default)
+	case "print-wallpaper":
+		fmt.Print(config.DefaultWallpaper)
 	case "init":
 		err = writeDefault(cfgPath)
 	case "ls":
@@ -137,19 +140,28 @@ func list() error {
 	return nil
 }
 
+// writeDefault creates config.toml and wallpaper.toml (whichever are missing).
 func writeDefault(path string) error {
 	if path == "" {
 		return fmt.Errorf("cannot determine config directory")
 	}
-	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("already exists: %s", path)
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, []byte(config.Default), 0o644); err != nil {
-		return err
+	files := []struct{ path, text string }{
+		{path, config.Default},
+		{filepath.Join(dir, config.DefaultWallpaperFile), config.DefaultWallpaper},
 	}
-	fmt.Println("wrote", path)
+	for _, f := range files {
+		if _, err := os.Stat(f.path); err == nil {
+			fmt.Println("kept   ", f.path, "(already exists)")
+			continue
+		}
+		if err := os.WriteFile(f.path, []byte(f.text), 0o644); err != nil {
+			return err
+		}
+		fmt.Println("wrote  ", f.path)
+	}
 	return nil
 }

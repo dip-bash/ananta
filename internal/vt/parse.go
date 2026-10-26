@@ -135,7 +135,7 @@ func (t *State) parseEscStr(c rune) {
 	switch c {
 	case '\033':
 		t.state = t.parseEscStrEnd
-	case '\a': // backwards compatiblity to xterm
+	case '\a': // BEL also terminates a string sequence
 		t.state = t.parse
 		t.handleSTR()
 	default:
