@@ -36,7 +36,9 @@ URL="https://github.com/${REPO}/releases/latest/download/${BIN_FILE}"
 
 echo "==> Downloading Ananta for ${ARCH}..."
 TMP_FILE=$(mktemp)
-if ! curl -sSL "$URL" -o "$TMP_FILE"; then
+
+# Using --progress-bar instead of -sSL to show a visual percentage bar
+if ! curl --progress-bar -SL "$URL" -o "$TMP_FILE"; then
     echo "Error: Failed to download binary from $URL"
     rm -f "$TMP_FILE"
     exit 1
