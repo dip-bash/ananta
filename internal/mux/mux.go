@@ -95,10 +95,12 @@ type Mux struct {
 	hits []hit
 	tabs []tabHit
 
-	sel     *Selection // mouse selection (highlighted until next input)
-	selDrag bool
-	cm      *CopyMode // non-nil while in copy mode
-	clip    string    // last copied text
+	sel      *Selection // mouse selection (highlighted until next input)
+	selDrag  bool
+	cm       *CopyMode   // non-nil while in copy mode
+	clip     string      // last copied text
+	clipCh   chan string // OSC 52 requests from programs running in panes
+	startDir string      // where panes start when there is no focused pane to copy from
 
 	attached bool // false while a session has no client: panes keep running, nothing is drawn
 
@@ -113,6 +115,7 @@ func New(cfg *config.Config, out *bufio.Writer) *Mux {
 		rend:       screen.NewRenderer(out),
 		dirty:      make(chan struct{}, 1),
 		exits:      make(chan *pane.Pane, 64),
+		clipCh:     make(chan string, 8),
 		stats:      stats.New(),
 		scrollMode: cfg.ScrollMode,
 		scale:      1,
@@ -226,8 +229,15 @@ func (m *Mux) SetAttached(on bool) {
 	m.attached = on
 }
 
+// SetStartDir sets the directory new panes start in when there is no focused
+// pane whose directory can be inherited.
+func (m *Mux) SetStartDir(dir string) { m.startDir = dir }
+
 // Quit ends the main loop.
 func (m *Mux) Quit() { m.quit = true }
+
+// Quitting reports whether Quit has been requested.
+func (m *Mux) Quitting() bool { return m.quit }
 
 // PaneCount reports the number of live panes (call from the loop goroutine).
 func (m *Mux) PaneCount() int { return m.totalPanes() }
@@ -252,6 +262,9 @@ func (m *Mux) Loop(keys <-chan []input.Key, post <-chan func()) {
 			fn()
 			need = true
 		case <-m.dirty:
+			need = true
+		case text := <-m.clipCh:
+			m.copyText(text)
 			need = true
 		case p := <-m.exits:
 			m.removePane(p)

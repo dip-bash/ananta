@@ -2,9 +2,9 @@ package mux
 
 import (
 	"fmt"
-	"unicode/utf8"
 
 	"ananta/internal/screen"
+	"ananta/internal/width"
 )
 
 // drawHelp paints the scrollable shortcut list, generated from the live config.
@@ -12,9 +12,9 @@ func (m *Mux) drawHelp(scr *screen.Screen) {
 	lines := m.cfg.HelpLines()
 	title := fmt.Sprintf(" shortcuts · leader = %s ", m.cfg.Leader)
 	foot := " j/k pgup/pgdn scroll · esc close "
-	maxLen := max(utf8.RuneCountInString(title), utf8.RuneCountInString(foot)+8)
+	maxLen := max(width.String(title), width.String(foot)+8)
 	for _, l := range lines {
-		maxLen = max(maxLen, utf8.RuneCountInString(l))
+		maxLen = max(maxLen, width.String(l))
 	}
 	tt, tileH := m.tileTop(), m.tileH()
 	w := min(maxLen+5, m.W)
@@ -44,7 +44,7 @@ func (m *Mux) drawHelp(scr *screen.Screen) {
 			scr.Set(x+w-2, y+1+i, screen.Cell{R: r, FG: fg, BG: m.th.statusBG})
 		}
 		counter := fmt.Sprintf(" %d-%d/%d ", m.helpScroll+1, m.helpScroll+vis, len(lines))
-		scr.Text(x+w-2-utf8.RuneCountInString(counter), y+h-1, counter, m.th.statusFG, m.th.statusBG, 0)
+		scr.Text(x+w-2-width.String(counter), y+h-1, counter, m.th.statusFG, m.th.statusBG, 0)
 	}
 	scr.Text(x+2, y+h-1, truncate(foot, w-4), m.th.statusFG, m.th.statusBG, 0)
 }

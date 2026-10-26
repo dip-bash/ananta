@@ -73,6 +73,7 @@ type Config struct {
 	DefaultColumnWidth float64           `toml:"default_column_width"`
 	ResizeStep         float64           `toml:"resize_step"`
 	ScrollbackLines    int               `toml:"scrollback_lines"`
+	AppClipboard       bool              `toml:"app_clipboard"`
 	QuitOnLastExit     bool              `toml:"quit_on_last_exit"`
 	Prefix             string            `toml:"prefix"`
 	Bar                Bar               `toml:"bar"`
@@ -190,6 +191,12 @@ func (cfg *Config) compile() {
 	default:
 		cfg.warn("bar.position must be top, bottom or hidden")
 		cfg.Bar.Position = "bottom"
+	}
+	switch cfg.Bar.MemStyle {
+	case "used", "percent", "both":
+	default:
+		cfg.warn("bar.mem_style must be used, percent or both (got %q)", cfg.Bar.MemStyle)
+		cfg.Bar.MemStyle = "used"
 	}
 	if cfg.Bar.Interval < 0.2 {
 		cfg.Bar.Interval = 1

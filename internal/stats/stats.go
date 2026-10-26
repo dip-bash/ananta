@@ -219,17 +219,24 @@ func readMem() (used, total uint64) {
 	return total - avail, total
 }
 
+// readNet sums traffic over physical interfaces. Virtual ones (docker0, veth*,
+// br-*, tun*, ...) are skipped because their traffic is already counted on the
+// real NIC and would inflate the number. If no interface looks physical (or
+// /sys is unreadable) every non-loopback interface is summed instead.
 func readNet() (rx, tx uint64, ok bool) {
 	b, err := os.ReadFile("/proc/net/dev")
 	if err != nil {
 		return
 	}
+	var allRX, allTX, physRX, physTX uint64
+	var any, phys bool
 	for _, line := range strings.Split(string(b), "\n") {
 		name, rest, found := strings.Cut(line, ":")
 		if !found {
 			continue
 		}
-		if strings.TrimSpace(name) == "lo" {
+		name = strings.TrimSpace(name)
+		if name == "lo" {
 			continue
 		}
 		f := strings.Fields(rest)
@@ -238,9 +245,15 @@ func readNet() (rx, tx uint64, ok bool) {
 		}
 		r, _ := strconv.ParseUint(f[0], 10, 64)
 		t, _ := strconv.ParseUint(f[8], 10, 64)
-		rx, tx, ok = rx+r, tx+t, true
+		allRX, allTX, any = allRX+r, allTX+t, true
+		if _, err := os.Stat("/sys/class/net/" + name + "/device"); err == nil {
+			physRX, physTX, phys = physRX+r, physTX+t, true
+		}
 	}
-	return
+	if phys {
+		return physRX, physTX, true
+	}
+	return allRX, allTX, any
 }
 
 func readBattery() (pct int, charging bool) {

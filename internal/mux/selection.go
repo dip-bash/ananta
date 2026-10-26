@@ -7,6 +7,7 @@ import (
 
 	"ananta/internal/clipboard"
 	"ananta/internal/pane"
+	"ananta/internal/vt"
 )
 
 // Selection is a highlighted region of one pane in logical coordinates
@@ -72,8 +73,11 @@ func (g *grid) row(y int) []rune {
 	g.p.Term.Lock()
 	line := g.p.Term.Row(g.v.vtRow(y))
 	for i := 0; i < len(line) && i < g.cols; i++ {
-		if c := line[i].Char; c != 0 {
-			out[i] = c
+		switch {
+		case line[i].Mode&vt.GlyphCont != 0:
+			out[i] = 0 // second half of a double-width character
+		case line[i].Char != 0:
+			out[i] = line[i].Char
 		}
 	}
 	g.p.Term.Unlock()
@@ -103,7 +107,12 @@ func (m *Mux) extract(s *Selection) string {
 		a, b = max(0, a), min(g.cols-1, b)
 		line := ""
 		if a <= b {
-			line = strings.TrimRight(string(g.row(y)[a:b+1]), " ")
+			line = strings.TrimRight(strings.Map(func(r rune) rune {
+				if r == 0 {
+					return -1 // continuation cell of a wide character
+				}
+				return r
+			}, string(g.row(y)[a:b+1])), " ")
 		}
 		lines = append(lines, line)
 	}
@@ -117,7 +126,9 @@ func (m *Mux) copyText(text string) {
 		return
 	}
 	m.clip = text
-	m.rend.Raw(clipboard.OSC52(text))
+	if m.attached { // nobody to send the escape to while detached
+		m.rend.Raw(clipboard.OSC52(text))
+	}
 	go clipboard.CopyNative(text)
 	m.notify(fmt.Sprintf("copied %d chars", utf8.RuneCountInString(text)))
 }

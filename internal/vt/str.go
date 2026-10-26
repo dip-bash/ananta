@@ -1,6 +1,7 @@
 package vt
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math"
 	"regexp"
@@ -111,6 +112,14 @@ func (t *State) handleSTR() {
 		// } else {
 		// 	// TODO: redraw
 		// }
+		case 52: // clipboard: OSC 52 ; selection ; base64-data
+			if t.onClipboard != nil && len(s.args) >= 3 {
+				if data := s.argString(2, ""); data != "" && data != "?" && len(data) < 1<<21 {
+					if raw, err := base64.StdEncoding.DecodeString(data); err == nil {
+						t.onClipboard(string(raw))
+					}
+				}
+			}
 		case 4: // color set
 			if len(s.args) < 3 {
 				break

@@ -3,6 +3,8 @@ package screen
 import (
 	"bufio"
 	"strconv"
+
+	"ananta/internal/width"
 )
 
 // Col is a terminal color: -1 = default, 0..255 = palette, TrueBit|rgb = truecolor.
@@ -22,10 +24,18 @@ const (
 	AttrReverse
 )
 
+// Cell widths: a double-width character is a WideLead cell followed by a
+// WideCont cell.
+const (
+	WideLead uint8 = 1
+	WideCont uint8 = 2
+)
+
 type Cell struct {
 	R      rune
 	FG, BG Col
 	A      uint8
+	W      uint8 // 0 normal, WideLead, WideCont
 }
 
 var Blank = Cell{R: ' ', FG: ColDefault, BG: ColDefault}
@@ -62,12 +72,46 @@ func (s *Screen) Fill(x, y, w, h int, c Cell) {
 	}
 }
 
+// Text writes str starting at (x, y) and returns the next free column.
+// Double-width characters take two cells; zero-width ones are skipped.
 func (s *Screen) Text(x, y int, str string, fg, bg Col, a uint8) int {
 	for _, r := range str {
-		s.Set(x, y, Cell{R: r, FG: fg, BG: bg, A: a})
-		x++
+		switch width.Rune(r) {
+		case 0:
+			continue
+		case 2:
+			s.Set(x, y, Cell{R: r, FG: fg, BG: bg, A: a, W: WideLead})
+			s.Set(x+1, y, Cell{R: ' ', FG: fg, BG: bg, A: a, W: WideCont})
+			x += 2
+		default:
+			s.Set(x, y, Cell{R: r, FG: fg, BG: bg, A: a})
+			x++
+		}
 	}
 	return x
+}
+
+// normalize repairs double-width characters that got cut (by a border, the
+// screen edge, or a neighbouring pane): a lead without its continuation, or a
+// continuation without its lead, becomes a blank so the terminal's column
+// accounting can't drift.
+func (s *Screen) normalize() {
+	for y := 0; y < s.H; y++ {
+		row := s.C[y*s.W : (y+1)*s.W]
+		for x := range row {
+			c := &row[x]
+			switch c.W {
+			case WideLead:
+				if x+1 >= s.W || row[x+1].W != WideCont {
+					*c = Cell{R: ' ', FG: ColDefault, BG: c.BG}
+				}
+			case WideCont:
+				if x == 0 || row[x-1].W != WideLead {
+					*c = Cell{R: ' ', FG: ColDefault, BG: c.BG}
+				}
+			}
+		}
+	}
 }
 
 // Renderer diffs the new frame against the previous one and emits only the
@@ -75,6 +119,7 @@ func (s *Screen) Text(x, y int, str string, fg, bg Col, a uint8) int {
 type Renderer struct {
 	out       *bufio.Writer
 	prev, cur *Screen
+	clear     bool // emit a screen clear inside the next frame
 }
 
 func NewRenderer(out *bufio.Writer) *Renderer { return &Renderer{out: out} }
@@ -85,7 +130,7 @@ func (r *Renderer) Resize(w, h int) {
 	for i := range r.prev.C {
 		r.prev.C[i].R = -1 // force full repaint
 	}
-	r.out.WriteString("\x1b[2J")
+	r.clear = true // cleared inside the next synchronized frame, so there's no flash
 }
 
 func (r *Renderer) color(base int, c Col) {
@@ -130,7 +175,12 @@ func (r *Renderer) sgr(c Cell) {
 
 func (r *Renderer) Flush(cx, cy int, showCursor bool) {
 	w := r.out
+	r.cur.normalize()
 	w.WriteString("\x1b[?2026h\x1b[?25l")
+	if r.clear {
+		w.WriteString("\x1b[0m\x1b[2J")
+		r.clear = false
+	}
 	var lastFG, lastBG Col
 	var lastA uint8
 	sgrOK := false
@@ -139,8 +189,8 @@ func (r *Renderer) Flush(cx, cy int, showCursor bool) {
 		for x := 0; x < r.cur.W; x++ {
 			i := y*r.cur.W + x
 			c := r.cur.C[i]
-			if c == r.prev.C[i] {
-				continue
+			if c.W == WideCont || c == r.prev.C[i] {
+				continue // continuation cells are drawn by their lead
 			}
 			if y != ly || x != lx {
 				w.WriteString("\x1b[")
@@ -159,6 +209,9 @@ func (r *Renderer) Flush(cx, cy int, showCursor bool) {
 			}
 			w.WriteRune(ch)
 			lx, ly = x+1, y
+			if c.W == WideLead {
+				lx = x + 2
+			}
 		}
 	}
 	copy(r.prev.C, r.cur.C)

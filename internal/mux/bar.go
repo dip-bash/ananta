@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"time"
-	"unicode/utf8"
 
 	"ananta/internal/config"
 	"ananta/internal/screen"
 	"ananta/internal/stats"
+	"ananta/internal/width"
 )
 
 // seg is one styled run of text in the bar. tab >= 0 marks a clickable
@@ -99,7 +99,7 @@ func (m *Mux) widget(name string, snap stats.Snapshot, now time.Time) []seg {
 		return out
 	case "message":
 		if m.msg != "" && now.Before(m.msgUntil) {
-			return []seg{{text: m.msg, fg: m.th.accent, bg: m.th.statusBG, tab: -1}}
+			return []seg{{text: truncate(m.msg, max(10, m.W*2/3)), fg: m.th.accent, bg: m.th.statusBG, tab: -1}}
 		}
 	case "title":
 		if p := m.focusedPane(); p != nil {
@@ -182,7 +182,7 @@ func (m *Mux) widget(name string, snap stats.Snapshot, now time.Time) []seg {
 
 func segsWidth(segs []seg) (n int) {
 	for _, s := range segs {
-		n += utf8.RuneCountInString(s.text)
+		n += width.String(s.text)
 	}
 	return
 }
@@ -234,7 +234,12 @@ func (m *Mux) drawBar(scr *screen.Screen) {
 	// (the clock and help hint, listed last, survive longest)
 	L := m.joinGroups(left)
 	lw := segsWidth(L)
-	for len(right) > 0 && segsWidth(m.joinGroups(right))+lw+4 > m.W {
+	C := m.joinGroups(center)
+	cw := segsWidth(C)
+	if cw > 0 { // a message (or a configured centre widget) outranks the right-hand widgets
+		cw += 4
+	}
+	for len(right) > 0 && segsWidth(m.joinGroups(right))+lw+cw+4 > m.W {
 		right = right[1:]
 	}
 	R := m.joinGroups(right)
@@ -247,7 +252,6 @@ func (m *Mux) drawBar(scr *screen.Screen) {
 	} else {
 		rx = m.W
 	}
-	C := m.joinGroups(center)
 	if cw := segsWidth(C); cw > 0 {
 		cx := (m.W - cw) / 2
 		if cx > x+1 && cx+cw < rx-1 {
