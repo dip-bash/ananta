@@ -1,4 +1,5 @@
 # ananta
+<img width="2048" height="768" alt="Ananta" src="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
 
 A scrollable tiling terminal multiplexer written in Go. Panes live in columns
 on an endless horizontal strip; focusing a column glides the view to it.
