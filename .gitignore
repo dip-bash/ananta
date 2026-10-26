@@ -1,2 +1,3 @@
-./ananta
+ananta-aarch64
+ananta-x86_64
 *.test
