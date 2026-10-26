@@ -13,7 +13,7 @@ func TestTabsAfterWiden(t *testing.T) {
 	defer term.Unlock()
 	for x := 0; x < 40; x++ {
 		if term.Cell(x, 0).Char == 'X' {
-			t.Logf("X landed at col %d (xterm: 24)", x)
+			t.Logf("X landed at col %d (next default tab stop is 24)", x)
 			if x != 24 {
 				t.Fail()
 			}

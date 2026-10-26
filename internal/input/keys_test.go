@@ -33,7 +33,7 @@ func TestParseLegacy(t *testing.T) {
 	}
 }
 
-func TestParseKitty(t *testing.T) {
+func TestParseCSIu(t *testing.T) {
 	ks := ParseKeys([]byte("\x1b[104;9u")) // super+h
 	if len(ks) != 1 || ks[0].Name != "super+h" || ks[0].Raw != nil {
 		t.Fatalf("super+h: %+v", ks)

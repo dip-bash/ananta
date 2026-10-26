@@ -46,6 +46,10 @@ func human(b float64) string {
 func (m *Mux) widget(name string, snap stats.Snapshot, now time.Time) []seg {
 	bar := m.cfg.Bar
 	switch name {
+	case "session":
+		if m.session != "" {
+			return []seg{{text: m.session, fg: m.th.accent, bg: m.th.statusBG, attr: screen.AttrBold, tab: -1}}
+		}
 	case "workspaces":
 		var out []seg
 		for i, ws := range m.ws {

@@ -195,6 +195,7 @@ func (m *Mux) render() {
 		if top >= tt+tileH || top+rowH <= tt {
 			continue
 		}
+		m.drawWallpaper(scr, 0, top, m.W, rowH)
 		cum := 0.0
 		for ci, col := range ws.Cols {
 			x0 := int(math.Round((cum - ws.ViewX) * s))
@@ -216,7 +217,7 @@ func (m *Mux) render() {
 				y += h
 			}
 		}
-		if len(ws.Cols) == 0 {
+		if len(ws.Cols) == 0 && m.wall == nil {
 			msg := "empty workspace — open a terminal"
 			if key := m.cfg.KeyFor("new_pane"); key != "" {
 				msg = "empty workspace — press " + key + " to open a terminal"

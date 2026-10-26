@@ -7,7 +7,7 @@ import (
 	"ananta/internal/pane"
 )
 
-// CopyMode is a vim-style cursor + visual selection over a pane's history
+// CopyMode is a keyboard-driven cursor + visual selection over a pane's history
 // and screen (logical rows, see scrollback.go). Keys are consumed here
 // instead of being sent to the app.
 type CopyMode struct {

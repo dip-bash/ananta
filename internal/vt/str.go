@@ -9,9 +9,8 @@ import (
 	"strings"
 )
 
-// STR sequences are similar to CSI sequences, but have string arguments (and
-// as far as I can tell, don't really have a name; STR is the name I took from
-// suckless which I imagine comes from rxvt or xterm).
+// STR sequences are similar to CSI sequences, but carry string arguments
+// (OSC titles, clipboard data, colours, ...).
 type strEscape struct {
 	typ  rune
 	buf  []rune
@@ -29,10 +28,9 @@ func (s *strEscape) put(c rune) {
 	if len(s.buf) < 256 {
 		s.buf = append(s.buf, c)
 	}
-	// Going by st, it is better to remain silent when the STR sequence is not
-	// ended so that it is apparent to users something is wrong. The length sanity
-	// check ensures we don't absorb the entire stream into memory.
-	// TODO: see what rxvt or xterm does
+	// It is better to remain silent when the STR sequence is not ended so that
+	// it is apparent to users something is wrong. The length sanity check
+	// ensures we don't absorb the entire stream into memory.
 }
 
 func (s *strEscape) parse() {

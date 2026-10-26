@@ -22,6 +22,7 @@ const (
 	AttrItalic
 	AttrUnderline
 	AttrReverse
+	AttrDim
 )
 
 // Cell widths: a double-width character is a WideLead cell followed by a
@@ -167,6 +168,9 @@ func (r *Renderer) sgr(c Cell) {
 	}
 	if c.A&AttrReverse != 0 {
 		w.WriteString(";7")
+	}
+	if c.A&AttrDim != 0 {
+		w.WriteString(";2")
 	}
 	r.color(38, c.FG)
 	r.color(48, c.BG)

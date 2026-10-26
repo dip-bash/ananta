@@ -114,7 +114,7 @@ func (t *State) handleCSI() {
 	case 'J': // ED - clear screen
 		// TODO: sel.ob.x = -1
 		switch c.arg(0, 0) {
-		case 3: // clear scrollback (xterm)
+		case 3: // clear scrollback
 			t.ClearScrollback()
 		case 0: // below
 			t.clear(t.cur.X, t.cur.Y, t.cols-1, t.cur.Y)

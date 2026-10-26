@@ -1,0 +1,33 @@
+# ananta wallpaper  (~/.config/ananta/wallpaper.toml)
+#
+# A wallpaper is a program that runs behind your panes. It is drawn wherever no
+# pane covers the screen (an empty workspace, the space beside a narrow column,
+# every row of the overview). It is display-only: it never receives keys or
+# mouse input, so full-screen programs and animations are safe to use.
+#
+# Select it in config.toml:
+#     wallpaper = "default"      # this file (wallpaper.toml, next to config.toml)
+#     wallpaper = "matrix.toml"  # or any other file in the same folder
+#     wallpaper = "none"         # no wallpaper
+#
+# Command ideas (the command runs through `sh -c`, sized to the whole screen):
+#     command = "htop"
+#     command = "watch -t -n 1 date"
+#     command = "~/scripts/my-wallpaper.sh"
+# or write the script right here, as below.
+command = '''
+while :; do
+  set -- $(stty size 2>/dev/null)
+  r=${1:-24}; c=${2:-80}
+  n='ananta'; t=$(date '+%H:%M'); d=$(date '+%A, %d %B %Y')
+  printf '\033[2J\033[%d;%dH\033[1m%s\033[0m\033[%d;%dH%s\033[%d;%dH%s' \
+    $((r/2-1)) $(( (c-${#n})/2 + 1 )) "$n" \
+    $((r/2+1)) $(( (c-${#t})/2 + 1 )) "$t" \
+    $((r/2+2)) $(( (c-${#d})/2 + 1 )) "$d"
+  sleep 2
+done
+'''
+
+dir = ""         # working directory ("" = your home directory)
+dim = true       # draw it faint so your panes stand out
+restart = true   # start the command again (after 2 s) if it exits

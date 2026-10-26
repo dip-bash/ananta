@@ -53,14 +53,14 @@ type Bar struct {
 
 // BuiltinWidgets are the widget names the status bar understands natively.
 var BuiltinWidgets = map[string]bool{
-	"workspaces": true, "columns": true, "mode": true, "message": true, "title": true, "help": true,
+	"session": true, "workspaces": true, "columns": true, "mode": true, "message": true, "title": true, "help": true,
 	"cpu": true, "mem": true, "net": true, "battery": true, "load": true,
 	"time": true, "date": true, "host": true, "user": true,
 }
 
 type Config struct {
 	Leader             string            `toml:"leader"`
-	KittyKeyboard      string            `toml:"kitty_keyboard"`
+	ExtendedKeys       string            `toml:"extended_keys"`
 	Shell              string            `toml:"shell"`
 	Mouse              bool              `toml:"mouse"`
 	Animate            bool              `toml:"animate"`
@@ -76,6 +76,7 @@ type Config struct {
 	AppClipboard       bool              `toml:"app_clipboard"`
 	QuitOnLastExit     bool              `toml:"quit_on_last_exit"`
 	Prefix             string            `toml:"prefix"`
+	Wallpaper          string            `toml:"wallpaper"`
 	Bar                Bar               `toml:"bar"`
 	Theme              Theme             `toml:"theme"`
 	Keys               map[string]string `toml:"keys"`
@@ -87,6 +88,9 @@ type Config struct {
 	PrefixMap  map[string]Action
 	PrefixKey  string
 	Warnings   []string
+
+	// WallpaperSpec is the resolved wallpaper (nil when disabled).
+	WallpaperSpec *WallpaperSpec
 }
 
 // Dir returns the config directory: $XDG_CONFIG_HOME/ananta or ~/.config/ananta.
@@ -126,6 +130,11 @@ func Load(path string) (*Config, error) {
 		}
 	}
 	cfg.compile()
+	dir := Dir()
+	if path != "" {
+		dir = filepath.Dir(path) // wallpaper files sit next to the config file in use
+	}
+	cfg.loadWallpaper(dir)
 	return cfg, nil
 }
 
@@ -210,9 +219,10 @@ func (cfg *Config) compile() {
 	}
 }
 
-// UseKitty reports whether the kitty keyboard protocol should be requested.
-func (c *Config) UseKitty() bool {
-	switch c.KittyKeyboard {
+// UseExtendedKeys reports whether the extended (CSI-u) keyboard protocol
+// should be requested from the terminal.
+func (c *Config) UseExtendedKeys() bool {
+	switch c.ExtendedKeys {
 	case "on", "true":
 		return true
 	case "off", "false":
@@ -239,7 +249,7 @@ func decodeInto(cfg *Config, text string) error {
 }
 
 // TermModes returns the escape sequences that put the user's terminal into
-// the state ananta needs (alt screen, mouse, kitty keyboard) and undo it.
+// the state ananta needs (alt screen, mouse, extended keyboard) and undo it.
 func (c *Config) TermModes() (setup, teardown string) {
 	setup = "\x1b[?1049h\x1b[?25l"
 	teardown = "\x1b[0m\x1b[?25h\x1b[?1049l"
@@ -247,7 +257,7 @@ func (c *Config) TermModes() (setup, teardown string) {
 		setup += "\x1b[?1002h\x1b[?1006h"
 		teardown = "\x1b[?1006l\x1b[?1002l" + teardown
 	}
-	if c.UseKitty() {
+	if c.UseExtendedKeys() {
 		setup += "\x1b[>5u"
 		teardown = "\x1b[<u" + teardown
 	}

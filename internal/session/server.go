@@ -233,6 +233,7 @@ func Serve(cfg *config.Config, name string) error {
 	s.setup, s.teardown = cfg.TermModes()
 	s.m = mux.New(cfg, bufio.NewWriterSize(clientWriter{s}, 1<<16))
 	s.m.OnDetach = s.detachCurrent
+	s.m.SetSessionName(name)
 
 	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
 	term := make(chan os.Signal, 1)

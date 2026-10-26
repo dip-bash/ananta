@@ -12,7 +12,7 @@
 //	bar.go        status bar and its widgets
 //	help.go       the scrollable help overlay
 //	selection.go  selection model + text extraction
-//	copymode.go   vim-style visual copy mode
+//	copymode.go   modal keyboard copy mode
 package mux
 
 import (
@@ -95,12 +95,14 @@ type Mux struct {
 	hits []hit
 	tabs []tabHit
 
-	sel      *Selection // mouse selection (highlighted until next input)
-	selDrag  bool
-	cm       *CopyMode   // non-nil while in copy mode
-	clip     string      // last copied text
-	clipCh   chan string // OSC 52 requests from programs running in panes
-	startDir string      // where panes start when there is no focused pane to copy from
+	sel         *Selection // mouse selection (highlighted until next input)
+	selDrag     bool
+	cm          *CopyMode   // non-nil while in copy mode
+	clipCh      chan string // OSC 52 requests from programs running in panes
+	startDir    string      // where panes start when there is no focused pane to copy from
+	session     string      // name shown by the "session" bar widget ("" in local mode)
+	wall        *pane.Pane  // wallpaper (not part of any workspace); nil when disabled
+	wallRestart chan struct{}
 
 	attached bool // false while a session has no client: panes keep running, nothing is drawn
 
@@ -110,16 +112,17 @@ type Mux struct {
 
 func New(cfg *config.Config, out *bufio.Writer) *Mux {
 	m := &Mux{
-		cfg:        cfg,
-		bs:         config.BorderFor(cfg.BorderStyle),
-		rend:       screen.NewRenderer(out),
-		dirty:      make(chan struct{}, 1),
-		exits:      make(chan *pane.Pane, 64),
-		clipCh:     make(chan string, 8),
-		stats:      stats.New(),
-		scrollMode: cfg.ScrollMode,
-		scale:      1,
-		attached:   true,
+		cfg:         cfg,
+		bs:          config.BorderFor(cfg.BorderStyle),
+		rend:        screen.NewRenderer(out),
+		dirty:       make(chan struct{}, 1),
+		exits:       make(chan *pane.Pane, 64),
+		clipCh:      make(chan string, 8),
+		wallRestart: make(chan struct{}, 1),
+		stats:       stats.New(),
+		scrollMode:  cfg.ScrollMode,
+		scale:       1,
+		attached:    true,
 		th: theme{
 			border: config.ParseColor(cfg.Theme.Border), focusBorder: config.ParseColor(cfg.Theme.FocusBorder),
 			title: config.ParseColor(cfg.Theme.Title), focusTitle: config.ParseColor(cfg.Theme.FocusTitle),
@@ -133,7 +136,7 @@ func New(cfg *config.Config, out *bufio.Writer) *Mux {
 	}
 	warn := append([]string(nil), cfg.Warnings...)
 	if cfg.LeaderMask&input.ModSuper != 0 {
-		warn = append(warn, "leader=super needs a kitty-keyboard-protocol terminal")
+		warn = append(warn, "leader=super needs a terminal with the extended keyboard protocol")
 	}
 	if len(warn) > 0 {
 		m.notify(strings.Join(warn, "; "))
@@ -164,12 +167,16 @@ func (m *Mux) Start() {
 		default:
 		}
 	})
+	m.startWallpaper()
 	m.newPane("")
 }
 
 // Shutdown stops background work and hangs up every pane.
 func (m *Mux) Shutdown() {
 	m.stats.Stop()
+	if m.wall != nil {
+		m.wall.Close()
+	}
 	for _, ws := range m.ws {
 		for _, c := range ws.Cols {
 			for _, p := range c.Panes {
@@ -229,6 +236,9 @@ func (m *Mux) SetAttached(on bool) {
 	m.attached = on
 }
 
+// SetSessionName sets the name shown by the "session" bar widget.
+func (m *Mux) SetSessionName(name string) { m.session = name }
+
 // SetStartDir sets the directory new panes start in when there is no focused
 // pane whose directory can be inherited.
 func (m *Mux) SetStartDir(dir string) { m.startDir = dir }
@@ -267,7 +277,14 @@ func (m *Mux) Loop(keys <-chan []input.Key, post <-chan func()) {
 			m.copyText(text)
 			need = true
 		case p := <-m.exits:
-			m.removePane(p)
+			if p == m.wall {
+				m.wallpaperExited(p)
+			} else {
+				m.removePane(p)
+			}
+			need = true
+		case <-m.wallRestart:
+			m.startWallpaper()
 			need = true
 		case now := <-tick.C:
 			dt := math.Min(now.Sub(last).Seconds(), 0.1)

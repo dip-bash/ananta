@@ -31,7 +31,7 @@ func TestLeaderChange(t *testing.T) {
 	if cfg.Keymap["super+h"].Name != "focus_left" {
 		t.Fatal("leader=super did not rebind leader+h")
 	}
-	if !cfg.UseKitty() {
-		t.Fatal("super leader should enable the kitty protocol")
+	if !cfg.UseExtendedKeys() {
+		t.Fatal("super leader should enable the extended keyboard protocol")
 	}
 }

@@ -24,7 +24,7 @@ type Mouse struct {
 }
 
 // Key is one decoded input event. Name is a canonical chord such as "alt+h" or
-// "ctrl+alt+shift+left"; Raw is the legacy (xterm-style) byte sequence that
+// "ctrl+alt+shift+left"; Raw is the legacy traditional byte sequence that
 // should be forwarded to a pane when the key isn't a shortcut.
 type Key struct {
 	Name  string
@@ -163,7 +163,7 @@ var tildeKeys = map[int]string{
 }
 
 func modsFromParam(s string) int {
-	// "5" or "5:1" (kitty adds an event type after a colon)
+	// "5" or "5:1" (the extended protocol adds an event type after a colon)
 	if i := strings.IndexByte(s, ':'); i >= 0 {
 		s = s[:i]
 	}
@@ -220,9 +220,9 @@ func ss3Name(c byte) string {
 	return m[c]
 }
 
-// kittyKey decodes a kitty-keyboard-protocol "CSI code[:shifted] ; mods u" key
+// csiUKey decodes an extended-keyboard-protocol "CSI code[:shifted] ; mods u" key
 // and also builds the legacy bytes a pane would expect for it.
-func kittyKey(params []byte) (name string, raw []byte) {
+func csiUKey(params []byte) (name string, raw []byte) {
 	ps := strings.Split(string(params), ";")
 	sub := strings.Split(ps[0], ":")
 	code, err := strconv.Atoi(sub[0])
@@ -392,7 +392,7 @@ func parseKeys(buf []byte, partial bool) (out []Key, rest []byte) {
 					out = append(out, Key{Mouse: mo})
 				}
 			case final == 'u' && (len(params) == 0 || (params[0] >= '0' && params[0] <= '9')):
-				name, raw := kittyKey(params)
+				name, raw := csiUKey(params)
 				out = append(out, Key{Name: name, Raw: raw})
 			default:
 				out = append(out, Key{Name: csiName(params, final), Raw: rawSeq})

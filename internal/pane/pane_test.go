@@ -29,7 +29,7 @@ func TestWriteToStuckChildDoesNotBlock(t *testing.T) {
 	}
 }
 
-// Terminal queries (e.g. cursor position, used by fish/zsh/vim) are answered
+// Terminal queries (e.g. cursor position, asked for by shells and editors) are answered
 // by the emulator writing to the PTY from the reader goroutine. That must keep
 // working long after the last keystroke.
 func TestEmulatorReplyWorksAfterIdle(t *testing.T) {

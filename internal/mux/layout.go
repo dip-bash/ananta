@@ -89,8 +89,8 @@ func (m *Mux) newColumnFor(ws *Workspace, p *pane.Pane) {
 
 func (m *Mux) spawn(cmdline string) (*pane.Pane, error) {
 	m.nextID++
-	// new panes start where the focused pane currently is (like tmux's
-	// pane_current_path), else in the session's start directory
+	// new panes start where the focused pane currently is, else in the
+	// session's start directory
 	dir := m.startDir
 	if fp := m.focusedPane(); fp != nil {
 		if d := fp.Cwd(); d != "" {
@@ -204,10 +204,10 @@ func (m *Mux) updateTarget(ws *Workspace) {
 	total, fx, fw := m.geom(ws)
 	W := float64(m.W)
 	if m.scrollMode == "center" {
-		ws.TargetX = fx + fw/2 - W/2 // always centered, like niri's "always"
+		ws.TargetX = fx + fw/2 - W/2 // always centered
 		return
 	}
-	// "fit" (PaperWM-like): move only as far as needed to show the column
+	// "fit": move only as far as needed to show the column
 	if fw >= W || fx < ws.TargetX {
 		ws.TargetX = fx
 	} else if fx+fw > ws.TargetX+W {
@@ -246,6 +246,9 @@ func (m *Mux) rowGeom() (rowHf, pitch float64) {
 // resizes panes: it shows scaled-down snapshots of the real content).
 func (m *Mux) syncSizes() {
 	tileH := m.tileH()
+	if m.wall != nil {
+		m.wall.Resize(m.W, tileH)
+	}
 	for _, ws := range m.ws {
 		for _, c := range ws.Cols {
 			tw := m.targetW(c)
