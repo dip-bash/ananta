@@ -3,10 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ananta. The Endless Terminal Multiplexer</title>
-  <meta name="description" content="A scrollable tiling terminal multiplexer built in Go. Panes live in columns on an endless horizontal strip." />
+  <title>Ananta — Niri-Inspired Terminal Multiplexer for SSH</title>
+  <meta name="description" content="Ananta is a Go terminal multiplexer with a Niri-inspired horizontal workflow, persistent sessions for SSH, Vim-style copy mode, and customizable status widgets." />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="theme-color" content="#141416" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="application-name" content="Ananta" />
+  <link rel="canonical" href="https://saumyadip.in/ananta/" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⯹</text></svg>" />
-  
+
+  <!-- Social previews -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Ananta" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:url" content="https://saumyadip.in/ananta/" />
+  <meta property="og:title" content="Ananta — Niri-Inspired Terminal Multiplexer for SSH" />
+  <meta property="og:description" content="A Go terminal multiplexer with a horizontally scrolling, tiling workflow and persistent sessions for remote work over SSH." />
+  <meta property="og:image" content="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
+  <meta property="og:image:width" content="2048" />
+  <meta property="og:image:height" content="768" />
+  <meta property="og:image:alt" content="Ananta terminal multiplexer interface and horizontal workspace layout" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Ananta — Niri-Inspired Terminal Multiplexer for SSH" />
+  <meta name="twitter:description" content="A Go terminal multiplexer with a horizontally scrolling, tiling workflow and persistent sessions for remote work over SSH." />
+  <meta name="twitter:image" content="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
+  <meta name="twitter:image:alt" content="Ananta terminal multiplexer interface and horizontal workspace layout" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://saumyadip.in/ananta/#website",
+        "url": "https://saumyadip.in/ananta/",
+        "name": "Ananta",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://saumyadip.in/ananta/#software",
+        "name": "Ananta",
+        "url": "https://saumyadip.in/ananta/",
+        "mainEntityOfPage": "https://saumyadip.in/ananta/",
+        "description": "A scrollable tiling terminal multiplexer written in Go. It arranges panes in columns across a horizontally scrolling workspace and supports persistent sessions, Vim-style copy mode, scrollback, mouse selection, and a configurable status bar.",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "Terminal multiplexer",
+        "operatingSystem": "Linux, macOS",
+        "programmingLanguage": "Go",
+        "codeRepository": "https://github.com/dip-bash/ananta",
+        "image": "https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1",
+        "featureList": [
+          "Horizontally scrolling columns and workspaces",
+          "Persistent sessions that can be reattached after an SSH disconnect",
+          "Vim-style keyboard copy mode",
+          "Per-pane scrollback and mouse selection",
+          "Configurable status bar with built-in metrics and shell-command widgets"
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -372,10 +429,34 @@
       border-top: 1px solid var(--border);
     }
     @media (min-width: 768px) { .features-grid { grid-template-columns: 1fr 1fr; } }
-    @media (min-width: 1024px) { .features-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 1024px) { .features-grid { grid-template-columns: repeat(3, 1fr); } }
     .feature-item { padding: 2rem 0; }
     .feature-heading { font-family: var(--font-display); font-size: 1.25rem; font-weight: 400; margin-bottom: 1rem; }
     .feature-desc { font-size: 0.875rem; line-height: 1.5; color: var(--muted); }
+
+
+    /* Workflow / use cases */
+    .workflow-intro {
+      max-width: 48rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+      line-height: 1.75;
+      margin-top: -1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    @media (min-width: 768px) {
+      .workflow-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .workflow-item {
+      border-top: 1px solid var(--border);
+      padding-top: 1.25rem;
+    }
+    .workflow-item h3 { margin-bottom: 0.75rem; }
 
     /* Keybindings */
     .filter-bar {
@@ -449,14 +530,15 @@
   </style>
 </head>
 <body>
-  <header>
+  <header id="top">
     <div class="container header-inner">
-      <a href="#" class="label-mono">ananta</a>
+      <a href="#top" class="label-mono" aria-label="Ananta home">ananta</a>
       <nav aria-label="Main navigation">
         <a href="#demo">Demo</a>
-        <a href="#keys">Keys</a>
-        <a href="#wiki">Wiki</a>
-        <a href="https://github.com/dip-bash/ananta" target="_blank" rel="noreferrer" class="gh-link">
+        <a href="#workflow">Workflow</a>
+        <a href="#keys">Keybindings</a>
+        <a href="#wiki">Documentation</a>
+        <a href="https://github.com/dip-bash/ananta" target="_blank" rel="noopener noreferrer" class="gh-link" aria-label="View Ananta source code on GitHub">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           <span>Star on GitHub</span>
         </a>
@@ -469,9 +551,9 @@
       <div class="hero-left">
         <p class="label-mono" style="margin-bottom: 1.25rem;">Scrollable tiling terminal</p>
         <h1 class="hero-title">ananta</h1>
-        <h2 class="hero-subtitle">The endless terminal multiplexer</h2>
+        <h2 class="hero-subtitle">A Niri-inspired terminal multiplexer</h2>
         <p class="hero-desc">
-          A scrollable tiling multiplexer built in Go. Panes live in columns on an endless horizontal strip, gliding smoothly into focus.
+          Ananta is a scrollable, tiling terminal multiplexer written in Go. Its columns form a horizontal canvas inspired by tiling-window-manager workflows. Move between workspaces, keep long-running programs alive across SSH disconnects, and manage shells, editors, builds, and logs from one keyboard-driven interface.
         </p>
 
         <div class="install-box">
@@ -488,7 +570,7 @@
         </div>
       </div>
 
-      <div class="demo-container" id="demo">
+      <div class="demo-container" id="demo" role="region" aria-label="Interactive Ananta terminal multiplexer demo">
         <p class="label-mono" style="margin-bottom: 1.25rem;">Live demo</p>
         <div class="terminal-window">
           <div class="window-header">
@@ -533,24 +615,61 @@
         <div class="features-grid">
           <div class="feature-item">
             <span class="label-mono" style="margin-bottom: 1.25rem; display: block;">01</span>
-            <h3 class="feature-heading">Infinite Horizontal Canvas</h3>
-            <p class="feature-desc">Panes live in columns on a scrollable strip. The viewport glides smoothly to whatever has focus, so nothing is ever cramped into a fixed split.</p>
+            <h3 class="feature-heading">A Horizontally Scrolling Workspace</h3>
+            <p class="feature-desc">Arrange terminal panes in columns across a horizontal canvas. Focus a column and the viewport glides to it instead of squeezing every task into a fixed split.</p>
           </div>
           <div class="feature-item">
             <span class="label-mono" style="margin-bottom: 1.25rem; display: block;">02</span>
-            <h3 class="feature-heading">Animated Overview Mode</h3>
-            <p class="feature-desc">Zoom out for a bird's-eye view of every workspace and column, then jump straight to where you need to be.</p>
+            <h3 class="feature-heading">Workspace Overview</h3>
+            <p class="feature-desc">Zoom out to see workspaces and columns at a glance, then jump directly to the area you need.</p>
           </div>
           <div class="feature-item">
             <span class="label-mono" style="margin-bottom: 1.25rem; display: block;">03</span>
             <h3 class="feature-heading">Vim-Style Copy Mode</h3>
-            <p class="feature-desc">Modal movement keys, block and line visual selections, and OSC 52 system clipboard support.</p>
+            <p class="feature-desc">Navigate pane history with modal keys, select characters, lines, or blocks, and copy through OSC 52 clipboard support.</p>
           </div>
           <div class="feature-item">
             <span class="label-mono" style="margin-bottom: 1.25rem; display: block;">04</span>
             <h3 class="feature-heading">Configurable Status Bar</h3>
-            <p class="feature-desc">Built-in CPU, MEM, Net and Battery metrics, plus your own shell command widgets.</p>
+            <p class="feature-desc">Show built-in CPU, memory, network, battery, and other metrics, or add your own shell-command widgets.</p>
           </div>
+          <div class="feature-item">
+            <span class="label-mono" style="margin-bottom: 1.25rem; display: block;">05</span>
+            <h3 class="feature-heading">Persistent Sessions for SSH</h3>
+            <p class="feature-desc">A background server owns the panes, so programs can keep running when the terminal closes or an SSH connection drops. Reattach to the session later.</p>
+          </div>
+          <div class="feature-item">
+            <span class="label-mono" style="margin-bottom: 1.25rem; display: block;">06</span>
+            <h3 class="feature-heading">Scrollback and Mouse Support</h3>
+            <p class="feature-desc">Keep per-pane command history, scroll through output, and select text with the mouse when you need to inspect logs or copy terminal output.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="workflow" class="bordered section-py" aria-labelledby="workflow-title">
+      <div class="container">
+        <div class="section-header">
+          <span class="label-mono" style="color: var(--accent-cyan);">WORKFLOW</span>
+          <h2 class="section-title" id="workflow-title">A tiling-window workflow, built for the terminal</h2>
+        </div>
+        <p class="workflow-intro">
+          Ananta brings a Niri-inspired horizontal layout to terminal work. It is designed for people who spend their day in shells, editors, remote servers, and command output—not for managing a collection of cramped, fixed terminal splits.
+        </p>
+        <div class="workflow-grid">
+          <article class="workflow-item">
+            <h3 class="feature-heading">Remote administration over SSH</h3>
+            <p class="feature-desc">Run long-lived commands in a persistent Ananta session on a remote machine. If your terminal closes or the SSH connection drops, the background session can keep its programs running so you can reattach later.</p>
+          </article>
+          <article class="workflow-item">
+            <h3 class="feature-heading">A wider canvas for focused work</h3>
+            <p class="feature-desc">Move horizontally between task-focused columns and workspaces. The layout takes inspiration from tiling window managers such as Niri while keeping the workflow inside your terminal.</p>
+          </article>
+          <article class="workflow-item">
+            <h3 class="feature-heading">Development and operations in one place</h3>
+            <p class="feature-desc">Keep an editor, test command, build process, log tail, or system monitor in its own pane. Use keyboard navigation, per-pane scrollback, and status-bar widgets to move between tasks.</p>
+          </article>
         </div>
       </div>
     </section>
@@ -568,9 +687,9 @@
           <button class="label-mono group-filter-btn" data-grp="Layout & Workspaces">Layout & Workspaces</button>
           <button class="label-mono group-filter-btn" data-grp="Resizing & Control">Resizing & Control</button>
           <button class="label-mono group-filter-btn" data-grp="Copy mode">Copy mode</button>
-          <input type="text" id="keys-search" class="search-input" placeholder="Filter shortcuts" />
+          <input type="search" id="keys-search" class="search-input" placeholder="Filter shortcuts" aria-label="Search keyboard shortcuts" />
         </div>
-        <div class="keys-grid" id="keys-container"></div>
+        <div class="keys-grid" id="keys-container" role="region" aria-label="Ananta keyboard shortcuts"></div>
       </div>
     </section>
 
