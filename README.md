@@ -14,6 +14,10 @@ scrollback, a keyboard copy mode, and persistent sessions (detach / reattach).
     ./ananta init           # writes ~/.config/ananta/config.toml and wallpaper.toml
     ./ananta                # attach to session "main" (created on first use)
 
+ananta starts empty: press `leader+enter` (alt+enter by default) to open the
+first terminal. Closing every pane does not end ananta; only `leader+Q` quits
+(and, in a session, ends it). `make cross-build` produces linux x86_64 and
+aarch64 binaries.
 `./ananta print-config` prints every option with comments.
 
 ## Sessions (detach / reattach)
@@ -29,7 +33,8 @@ terminal closes or SSH drops. The terminal you type in is just a client.
     ananta kill work       end a session and everything in it
     ananta local           no background session; closing the terminal ends it
 
-Detach with `leader+d`; attaching from a second terminal takes the session
+A new session starts with no panes; it keeps running with zero panes until
+`leader+Q`. Detach with `leader+d`; attaching from a second terminal takes the session
 over and re-lays it out for the new size. `leader+Q` ends the session. The
 session name is shown in the status bar (the `session` widget; remove it from
 the bar lists to hide it).
@@ -179,6 +184,13 @@ swaps ends, `y` or `Enter` copies, `Esc` leaves.
 Adding an action: add a line to `ActionInfo` (internal/config/actions.go), a
 `case` in `run` (internal/mux/actions.go), and bind it in `default.toml`. The
 help screen picks it up automatically.
+
+## Terminal compatibility
+
+ananta's emulator answers the usual identification queries (primary and
+secondary device attributes, terminal version, cursor position) so shells that
+probe the terminal at startup, such as fish 4, get their answer immediately
+instead of timing out.
 
 ## Known limits
 
