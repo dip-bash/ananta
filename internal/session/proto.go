@@ -16,17 +16,19 @@ import (
 // Frame types. A frame is: 1 byte type, 4 byte big-endian length, payload.
 const (
 	// client -> server
-	MsgHello  = 'H' // JSON Size; first frame of an attaching client
-	MsgInput  = 'I' // raw terminal input bytes
-	MsgResize = 'R' // JSON Size
-	MsgKill   = 'K' // first frame: end the session
-	MsgInfo   = 'P' // first frame: ask for session info
+	MsgHello   = 'H' // JSON Size; first frame of an attaching client
+	MsgInput   = 'I' // raw terminal input bytes
+	MsgResize  = 'R' // JSON Size
+	MsgKill    = 'K' // first frame: end the session
+	MsgInfo    = 'P' // first frame: ask for session info
+	MsgCommand = 'C' // first frame: JSON mux.Request, answered with MsgCommandResp
 	// server -> client
-	MsgSetup    = 'S' // terminal setup sequence, NUL, teardown sequence
-	MsgOutput   = 'O' // bytes to write to the terminal
-	MsgDetached = 'X' // payload: reason; client should exit
-	MsgEnded    = 'Q' // session ended (all panes closed / killed)
-	MsgInfoResp = 'p' // JSON Info
+	MsgSetup       = 'S' // terminal setup sequence, NUL, teardown sequence
+	MsgOutput      = 'O' // bytes to write to the terminal
+	MsgDetached    = 'X' // payload: reason; client should exit
+	MsgEnded       = 'Q' // session ended (all panes closed / killed)
+	MsgInfoResp    = 'p' // JSON Info
+	MsgCommandResp = 'c' // JSON Response
 )
 
 const maxFrame = 16 << 20
@@ -36,6 +38,12 @@ const maxFrame = 16 << 20
 type Size struct {
 	Cols, Rows int
 	Cwd        string `json:",omitempty"`
+}
+
+// Response is the answer to a MsgCommand.
+type Response struct {
+	Output string `json:",omitempty"`
+	Error  string `json:",omitempty"`
 }
 
 type Info struct {

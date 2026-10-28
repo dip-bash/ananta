@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -37,6 +38,8 @@ type Server struct {
 	keys            chan []input.Key
 	post            chan func()
 	setup, teardown string
+
+	started atomic.Bool // the mux loop is running (a first client has attached)
 
 	mu        sync.Mutex
 	cur       *client
@@ -123,6 +126,8 @@ func (s *Server) handle(conn net.Conn) {
 	case MsgKill:
 		s.requestStop()
 		conn.Close()
+	case MsgCommand:
+		s.replyCommand(conn, payload)
 	case MsgHello:
 		var sz Size
 		if json.Unmarshal(payload, &sz) != nil || sz.Cols < 1 || sz.Rows < 2 {
@@ -251,6 +256,7 @@ func Serve(cfg *config.Config, name string) error {
 		return nil // nobody ever attached
 	}
 	s.m.Start()
+	s.started.Store(true)
 	s.m.Loop(s.keys, s.post)
 	s.m.Shutdown()
 	if c := s.current(); c != nil {
@@ -264,4 +270,39 @@ func Serve(cfg *config.Config, name string) error {
 func splitSetup(p []byte) (setup, teardown string) {
 	a, b, _ := strings.Cut(string(p), "\x00")
 	return a, b
+}
+
+// replyCommand executes a control request on the mux goroutine and answers it.
+func (s *Server) replyCommand(conn net.Conn, payload []byte) {
+	defer conn.Close()
+	var req mux.Request
+	resp := Response{}
+	switch {
+	case json.Unmarshal(payload, &req) != nil:
+		resp.Error = "malformed command"
+	case !s.started.Load():
+		resp.Error = "session is not ready: attach to it once first (run `ananta`)"
+	default:
+		ch := make(chan Response, 1)
+		work := func() {
+			out, err := s.m.Control(req)
+			r := Response{Output: out}
+			if err != nil {
+				r.Error = err.Error()
+			}
+			ch <- r
+		}
+		select {
+		case s.post <- work:
+			select {
+			case resp = <-ch:
+			case <-time.After(5 * time.Second):
+				resp.Error = "timed out waiting for the session"
+			}
+		case <-time.After(2 * time.Second):
+			resp.Error = "session is busy"
+		}
+	}
+	b, _ := json.Marshal(resp)
+	_ = writeFrame(conn, MsgCommandResp, b)
 }

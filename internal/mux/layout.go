@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"fmt"
 	"math"
 
 	"ananta/internal/pane"
@@ -72,8 +73,13 @@ func (ws *Workspace) detachAt(ci, pi int) *pane.Pane {
 	return p
 }
 
-func (m *Mux) newColumnFor(ws *Workspace, p *pane.Pane) {
-	col := &Column{Panes: []*pane.Pane{p}, WFrac: m.cfg.DefaultColumnWidth}
+// newColumnFor puts p in a new column to the right of ws's focused column.
+// frac is the column width as a fraction of the screen (<= 0: the default).
+func (m *Mux) newColumnFor(ws *Workspace, p *pane.Pane, frac float64) {
+	if frac <= 0 {
+		frac = m.cfg.DefaultColumnWidth
+	}
+	col := &Column{Panes: []*pane.Pane{p}, WFrac: frac}
 	if !m.cfg.Animate {
 		col.CurW = float64(m.targetW(col))
 	}
@@ -87,25 +93,40 @@ func (m *Mux) newColumnFor(ws *Workspace, p *pane.Pane) {
 	ws.Focus = idx
 }
 
+// spawn starts a pane for an action: it begins where the focused pane is.
 func (m *Mux) spawn(cmdline string) (*pane.Pane, error) {
-	m.nextID++
-	// new panes start where the focused pane currently is, else in the
-	// session's start directory
 	dir := m.startDir
 	if fp := m.focusedPane(); fp != nil {
 		if d := fp.Cwd(); d != "" {
 			dir = d
 		}
 	}
+	return m.spawnWith(cmdline, dir, m.cfg.DefaultColumnWidth)
+}
+
+// spawnWith starts a pane in dir, sized for a column of width frac (a
+// fraction of the screen width).
+func (m *Mux) spawnWith(cmdline, dir string, frac float64) (*pane.Pane, error) {
+	m.nextID++
 	var clip chan<- string
 	if m.cfg.AppClipboard {
 		clip = m.clipCh
 	}
-	w := int(m.cfg.DefaultColumnWidth*float64(m.W)) - 2
 	return pane.New(pane.Options{
 		ID: m.nextID, Shell: m.cfg.Shell, Cmdline: cmdline, Dir: dir,
-		Cols: w, Rows: m.tileH() - 2, Scrollback: m.cfg.ScrollbackLines,
+		Cols: int(frac*float64(m.W)) - 2, Rows: m.tileH() - 2, Scrollback: m.cfg.ScrollbackLines,
+		Env: m.paneEnv(m.nextID),
 	}, m.dirty, m.exits, clip)
+}
+
+// paneEnv is what lets programs (and the `ananta` command run inside a pane)
+// find the session and pane they belong to.
+func (m *Mux) paneEnv(id int) []string {
+	env := []string{fmt.Sprintf("ANANTA_PANE=%d", id)}
+	if m.session != "" {
+		env = append(env, "ANANTA_SESSION="+m.session)
+	}
+	return env
 }
 
 func (m *Mux) newPane(cmdline string) {
@@ -114,12 +135,11 @@ func (m *Mux) newPane(cmdline string) {
 		m.notify("spawn failed: " + err.Error())
 		return
 	}
-	m.newColumnFor(m.curWS(), p)
+	m.newColumnFor(m.curWS(), p, 0)
 }
 
 func (m *Mux) newPaneBelow(cmdline string) {
-	col := m.focusedCol()
-	if col == nil {
+	if m.focusedCol() == nil {
 		m.newPane(cmdline)
 		return
 	}
@@ -128,6 +148,12 @@ func (m *Mux) newPaneBelow(cmdline string) {
 		m.notify("spawn failed: " + err.Error())
 		return
 	}
+	m.stackBelow(m.curWS(), p)
+}
+
+// stackBelow adds p under the focused pane of ws's focused column.
+func (m *Mux) stackBelow(ws *Workspace, p *pane.Pane) {
+	col := ws.Cols[ws.Focus]
 	i := col.Focus + 1
 	col.Panes = append(col.Panes, nil)
 	copy(col.Panes[i+1:], col.Panes[i:])

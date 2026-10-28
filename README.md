@@ -1,4 +1,5 @@
 # ananta
+
 <img width="2048" height="768" alt="Ananta" src="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
 
 A scrollable tiling terminal multiplexer written in Go. Panes live in columns
@@ -43,6 +44,41 @@ Sockets and server logs live in `$XDG_RUNTIME_DIR/ananta-<uid>/` (or the temp
 dir). The server reads the config when it starts: restart the session to apply
 changes. Panes started later inherit the environment the server was launched
 with, so e.g. a changed `SSH_AUTH_SOCK` is not picked up.
+
+## Controlling a session from the command line
+
+Any shell, script or keybinding can drive a running session. The program to
+run goes in **double quotes, as one argument**:
+
+    ananta open "htop" -n 3 -w 0.33 -s test    # htop, workspace 3, 33% wide, session "test"
+    ananta open "tail -f /var/log/syslog" --below
+    ananta open "make watch" -k                # -k: keep keyboard focus where it is
+    ananta open                                # no program: a new shell
+
+    ananta workspace 3                         # switch the view
+    ananta focus left                          # left | right | up | down
+    ananta width 50%                           # resize the focused column
+    ananta send -e "make test"                 # type into a pane (-e presses Enter)
+    ananta close                               # close the focused pane
+    ananta list                                # id, workspace, column, width, program
+    ananta action overview                     # run any action by name,
+    ananta action goto_workspace 2             # exactly as if its key was pressed
+
+Widths are a fraction or a percentage: `0.33`, `33%` and `33` all mean the same
+(a column is never narrower than 12 cells). Flags may go before or after the
+program. `open` prints the new pane's id; pass it to `-p ID` on `width`,
+`send` and `close` to target that pane.
+
+**Which session?** `-s NAME` if given; otherwise the session you are inside
+(every pane has `ANANTA_SESSION` and `ANANTA_PANE` set, so a command typed in a
+pane of session "work" acts on "work", and `close` / `send` / `width` default to
+that very pane); otherwise `main`. Inside `ananta local` there is no session,
+so name one with `-s`.
+
+`open` starts the program in the directory you ran the command from (`-d DIR`
+to choose another). A pane opened in the current workspace takes keyboard focus
+like any new pane; one opened in another workspace leaves your view alone
+unless you add `--focus`.
 
 ## Wallpaper
 
@@ -156,6 +192,7 @@ swaps ends, `y` or `Enter` copies, `Esc` leaves.
 ## Project layout
 
     cmd/ananta/main.go      flags, commands, config loading
+    cmd/ananta/control.go   `ananta open|workspace|focus|width|send|close|list|action`
     internal/app/           "local" mode: runs the mux directly in this terminal
     internal/session/       persistent sessions: server, client, wire protocol
     internal/config/        config structs, loader, embedded default config + wallpaper, action table
@@ -174,6 +211,7 @@ swaps ends, `y` or `Enter` copies, `Esc` leaves.
         keyboard.go         key dispatch
         mouse.go            clicks, drag selection, wheel, forwarding to programs
         render.go           frame composition, overview thumbnails
+        control.go          commands from outside (open, workspace, send, list, ...)
         wallpaper.go        the background program
         bar.go              status bar + widgets            <- add new widgets here
         help.go             scrollable help overlay
