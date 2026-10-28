@@ -8,6 +8,10 @@ Square borders, animated scrolling and zoom, an overview of every workspace,
 a configurable status bar, a live wallpaper, mouse support, per-pane
 scrollback, a keyboard copy mode, and persistent sessions (detach / reattach).
 
+## Demo
+[ananta.webm](https://github.com/user-attachments/assets/00d637a2-13cf-4b0e-8e37-f38ff4092152)
+
+
 ## Build
 
     go mod tidy
