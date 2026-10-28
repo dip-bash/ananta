@@ -159,9 +159,6 @@ func (m *Mux) removePane(p *pane.Pane) {
 	if ws, _, ci, pi, ok := m.findPane(p); ok {
 		ws.detachAt(ci, pi)
 	}
-	if m.totalPanes() == 0 && m.cfg.QuitOnLastExit {
-		m.quit = true
-	}
 }
 
 func (m *Mux) moveWorkspaceRel(d int) {

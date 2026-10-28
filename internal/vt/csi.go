@@ -13,6 +13,9 @@ type csiEscape struct {
 	args []int
 	mode byte
 	priv bool
+	// prefix is the private-parameter marker that follows "CSI": one of ? > = <
+	// (0 when absent). ">", "=" and "<" sequences are terminal extensions.
+	prefix byte
 }
 
 func (c *csiEscape) reset() {
@@ -20,6 +23,7 @@ func (c *csiEscape) reset() {
 	c.args = c.args[:0]
 	c.mode = 0
 	c.priv = false
+	c.prefix = 0
 }
 
 func (c *csiEscape) put(b byte) bool {
@@ -38,8 +42,10 @@ func (c *csiEscape) parse() {
 	}
 	s := string(c.buf)
 	c.args = c.args[:0]
-	if s[0] == '?' {
-		c.priv = true
+	switch s[0] {
+	case '?', '>', '=', '<':
+		c.prefix = s[0]
+		c.priv = s[0] == '?'
 		s = s[1:]
 	}
 	s = s[:len(s)-1]
@@ -66,8 +72,31 @@ func (c *csiEscape) maxarg(i, def int) int {
 	return max(c.arg(i, def), def)
 }
 
+// Replies to terminal identification queries. Shells and editors send these at
+// startup and wait for the answer, so they must not be left unanswered.
+const (
+	replyPrimaryDA   = "\x1b[?62;22c"        // VT220-class, ANSI colour
+	replySecondaryDA = "\x1b[>0;0;0c"        // unknown terminal type, no firmware version
+	replyXTVersion   = "\x1bP>|ananta\x1b\\" // terminal name and version query
+)
+
 func (t *State) handleCSI() {
 	c := &t.csi
+	if c.prefix != 0 && c.prefix != '?' {
+		// ">", "=" and "<" sequences are extensions. Answer the identification
+		// queries; ignore the rest instead of misreading them as plain CSI
+		// (">4;1m" is not SGR, "=5u" is not restore-cursor).
+		switch {
+		case c.prefix == '>' && c.mode == 'c' && c.arg(0, 0) == 0:
+			t.w.Write([]byte(replySecondaryDA))
+		case c.prefix == '>' && c.mode == 'q' && c.arg(0, 0) == 0:
+			t.w.Write([]byte(replyXTVersion))
+		}
+		return
+	}
+	if c.priv && c.mode == 'u' {
+		return // keyboard-protocol query: unsupported, so deliberately unanswered
+	}
 	switch c.mode {
 	default:
 		goto unknown
@@ -79,7 +108,7 @@ func (t *State) handleCSI() {
 		t.moveTo(t.cur.X, t.cur.Y+c.maxarg(0, 1))
 	case 'c': // DA - device attributes
 		if c.arg(0, 0) == 0 {
-			// TODO: write vt102 id
+			t.w.Write([]byte(replyPrimaryDA))
 		}
 	case 'C', 'a': // CUF, HPR - cursor <n> forward
 		t.moveTo(t.cur.X+c.maxarg(0, 1), t.cur.Y)

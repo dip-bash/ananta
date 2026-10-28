@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,16 +16,40 @@ import (
 
 	"ananta/internal/config"
 	"ananta/internal/mux"
+	"ananta/internal/vt"
 )
 
-// readUntil reads output frames until want appears (or a non-output frame of
-// type stopOn arrives).
+// screenText replays everything the server has drawn into a terminal emulator
+// and returns the resulting screen. The renderer sends only changed cells (and
+// a pane that is still animating open reveals text piece by piece), so output
+// must be judged by the screen it produces, never by searching raw bytes.
+func screenText(out []byte, cols, rows int) string {
+	term := vt.New(vt.WithSize(cols, rows))
+	_, _ = term.Write(out)
+	term.Lock()
+	defer term.Unlock()
+	var sb strings.Builder
+	for y := 0; y < rows; y++ {
+		for x := 0; x < cols; x++ {
+			c := term.Cell(x, y).Char
+			if c == 0 {
+				c = ' '
+			}
+			sb.WriteRune(c)
+		}
+		sb.WriteByte('\n')
+	}
+	return sb.String()
+}
+
+// readUntil reads frames until the screen contains want (when want != ""), or
+// until a frame of type stopOn arrives. It returns the last frame type seen.
 func readUntil(t *testing.T, conn net.Conn, want string, stopOn byte) (found bool, last byte) {
 	t.Helper()
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
 	var acc []byte
 	for time.Now().Before(deadline) {
-		_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+		_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 		typ, payload, err := readFrame(conn)
 		if err != nil {
 			continue
@@ -30,13 +57,16 @@ func readUntil(t *testing.T, conn net.Conn, want string, stopOn byte) (found boo
 		last = typ
 		if typ == MsgOutput {
 			acc = append(acc, payload...)
-			if bytes.Contains(acc, []byte(want)) {
+			if want != "" && strings.Contains(screenText(acc, 80, 24), want) {
 				return true, typ
 			}
 		}
 		if stopOn != 0 && typ == stopOn {
 			return false, typ
 		}
+	}
+	if want != "" {
+		t.Logf("screen at timeout:\n%s", screenText(acc, 80, 24))
 	}
 	return false, last
 }
@@ -67,11 +97,12 @@ func skipWithoutPTY(t *testing.T) {
 func TestDetachKeepsPanesAlive(t *testing.T) {
 	skipWithoutPTY(t)
 	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
-	t.Setenv("SHELL", "/bin/sh")
-	cfg, err := config.Load("")
+	t.Setenv("SHELL", shellForTest())
+	cfg, err := config.Load(filepath.Join(t.TempDir(), "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	cfg.WallpaperSpec = nil // keep the test about sessions, not the background program
 	done := make(chan error, 1)
 	go func() { done <- Serve(cfg, "t") }()
 	for i := 0; i < 100 && !Exists("t"); i++ {
@@ -85,6 +116,8 @@ func TestDetachKeepsPanesAlive(t *testing.T) {
 	if typ, _, err := readFrame(c1); err != nil || typ != MsgSetup {
 		t.Fatalf("expected setup frame, got %c %v", typ, err)
 	}
+	_ = writeFrame(c1, MsgInput, []byte("\x1b\r")) // new_pane: a session starts empty
+	time.Sleep(100 * time.Millisecond)
 	_ = writeFrame(c1, MsgInput, []byte("echo hello-$((40+2))\r"))
 	if ok, _ := readUntil(t, c1, "hello-42", 0); !ok {
 		t.Fatal("never saw command output")
@@ -138,7 +171,7 @@ func TestFrameRoundTripAndNames(t *testing.T) {
 
 // A kill must not be lost when the work queue is momentarily full.
 func TestStopSurvivesFullQueue(t *testing.T) {
-	cfg, _ := config.Load("")
+	cfg, _ := config.Load(filepath.Join(t.TempDir(), "config.toml"))
 	s := &Server{
 		post: make(chan func(), 2),
 		stop: make(chan struct{}),
@@ -159,4 +192,12 @@ func TestStopSurvivesFullQueue(t *testing.T) {
 			t.Fatal("quit was dropped")
 		}
 	}
+}
+
+// shellForTest lets the test run against any shell: TEST_SHELL=/bin/bash go test ...
+func shellForTest() string {
+	if s := os.Getenv("TEST_SHELL"); s != "" {
+		return s
+	}
+	return "/bin/sh"
 }

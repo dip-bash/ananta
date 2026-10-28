@@ -24,7 +24,6 @@ border_style = "single"    # single | double | heavy | ascii   (square corners o
 column_widths = [0.33, 0.5, 0.66, 1.0]   # presets used by cycle_width (fraction of screen)
 default_column_width = 0.5
 resize_step = 0.05         # grow / shrink step (fraction of screen)
-quit_on_last_exit = true
 app_clipboard = true       # let programs in a pane set the clipboard (OSC 52)
 scrollback_lines = 10000   # history kept per pane (0 = off); wheel / shift+pageup / copy mode read it
 

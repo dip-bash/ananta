@@ -153,7 +153,8 @@ func (m *Mux) SetSize(w, h int) {
 	m.rend.Resize(w, h)
 }
 
-// Start launches the stats sampler and the first pane.
+// Start launches the stats sampler and the wallpaper. No pane is opened: the
+// user opens the first one (new_pane) and ananta only exits on quit.
 func (m *Mux) Start() {
 	custom := map[string]stats.Custom{}
 	for name, w := range m.cfg.Bar.Widgets {
@@ -168,7 +169,6 @@ func (m *Mux) Start() {
 		}
 	})
 	m.startWallpaper()
-	m.newPane("")
 }
 
 // Shutdown stops background work and hangs up every pane.

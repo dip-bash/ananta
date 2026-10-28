@@ -74,7 +74,6 @@ type Config struct {
 	ResizeStep         float64           `toml:"resize_step"`
 	ScrollbackLines    int               `toml:"scrollback_lines"`
 	AppClipboard       bool              `toml:"app_clipboard"`
-	QuitOnLastExit     bool              `toml:"quit_on_last_exit"`
 	Prefix             string            `toml:"prefix"`
 	Wallpaper          string            `toml:"wallpaper"`
 	Bar                Bar               `toml:"bar"`

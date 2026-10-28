@@ -1,9 +1,12 @@
 package config
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestDefaultsLoadCleanly(t *testing.T) {
-	cfg, err := Load("")
+	cfg, err := Load(filepath.Join(t.TempDir(), "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
