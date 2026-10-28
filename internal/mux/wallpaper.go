@@ -25,7 +25,7 @@ func (m *Mux) startWallpaper() {
 	p, err := pane.New(pane.Options{
 		ID: m.nextID, Cmdline: spec.Command, Dir: dir,
 		Cols: m.W, Rows: m.tileH(),
-		Env: []string{"ANANTA_WALLPAPER=1"},
+		Env: m.wallpaperEnv(),
 	}, m.dirty, m.exits, nil) // no scrollback; it may not touch the clipboard
 	if err != nil {
 		m.notify("wallpaper failed: " + err.Error())
@@ -87,4 +87,12 @@ func (m *Mux) drawWallpaper(scr *screen.Screen, x, y, w, h int) {
 			scr.Set(x+col, y+row, c)
 		}
 	}
+}
+
+func (m *Mux) wallpaperEnv() []string {
+	env := []string{"ANANTA_WALLPAPER=1"}
+	if m.session != "" {
+		env = append(env, "ANANTA_SESSION="+m.session)
+	}
+	return env
 }

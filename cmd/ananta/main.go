@@ -7,6 +7,7 @@
 //	ananta ls              list sessions
 //	ananta kill [name]     end a session
 //	ananta local           run in this terminal only (no background session)
+//	ananta open "htop" -n 3 -w 33% -s test   control a running session (see ananta help)
 package main
 
 import (
@@ -32,6 +33,12 @@ commands:
   init           write config.toml and wallpaper.toml to ~/.config/ananta/
   print-config   print the default config
   print-wallpaper  print the default wallpaper file
+
+control a running session (details: ananta help):
+  open "cmd" [-n WORKSPACE] [-w WIDTH] [-s SESSION]   run a program in a new pane
+  workspace N | focus DIR | width W | send "text" | close | list | action NAME
+  (the program goes in double quotes; the session defaults to the one you are
+   inside, else "main")
 `
 
 func main() {
@@ -42,10 +49,18 @@ func main() {
 	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	flag.Parse()
 
+	explicitSession := ""
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "s" {
+			explicitSession = f.Value.String()
+		}
+	})
 	args := flag.Args()
 	cmd := "default"
+	var rest []string
 	if len(args) > 0 {
 		cmd, args = args[0], args[1:]
+		rest = args
 	}
 	name := *sessFlag
 	if len(args) > 0 {
@@ -67,6 +82,8 @@ func main() {
 		fmt.Print(config.DefaultWallpaper)
 	case "init":
 		err = writeDefault(cfgPath)
+	case "help":
+		fmt.Print(usage, "\n", controlUsage)
 	case "ls":
 		err = list()
 	case "kill":
@@ -105,6 +122,11 @@ func main() {
 			}
 		}
 	default:
+		if controlCommands[cmd] {
+			// flags and arguments after the command belong to the command
+			err = runControl(cmd, rest, explicitSession)
+			break
+		}
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
 	}

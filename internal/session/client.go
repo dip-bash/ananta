@@ -1,6 +1,7 @@
 package session
 
 import (
+	"ananta/internal/mux"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -200,4 +201,30 @@ func List() ([]Info, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
+}
+
+// Control sends one command to a running session and returns its output.
+func Control(name string, req mux.Request) (string, error) {
+	conn, err := dial(name)
+	if err != nil {
+		return "", fmt.Errorf("no running session %q (start one with `ananta new %s`)", name, name)
+	}
+	defer conn.Close()
+	payload, _ := json.Marshal(req)
+	if err := writeFrame(conn, MsgCommand, payload); err != nil {
+		return "", err
+	}
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	typ, p, err := readFrame(conn)
+	if err != nil || typ != MsgCommandResp {
+		return "", fmt.Errorf("no answer from session %q", name)
+	}
+	var resp Response
+	if err := json.Unmarshal(p, &resp); err != nil {
+		return "", err
+	}
+	if resp.Error != "" {
+		return "", errors.New(resp.Error)
+	}
+	return resp.Output, nil
 }

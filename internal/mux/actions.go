@@ -70,7 +70,7 @@ func (m *Mux) run(a config.Action) {
 			ci := ws.Focus
 			p := ws.detachAt(ci, col.Focus)
 			ws.Focus = ci
-			m.newColumnFor(ws, p)
+			m.newColumnFor(ws, p, 0)
 		}
 	case "grow":
 		if col != nil {
@@ -125,7 +125,7 @@ func (m *Mux) run(a config.Action) {
 			return
 		}
 		p := ws.detachAt(ws.Focus, col.Focus)
-		m.newColumnFor(m.ws[n-1], p)
+		m.newColumnFor(m.ws[n-1], p, 0)
 	case "copy_mode":
 		m.enterCopyMode()
 	case "scroll_up", "scroll_down":

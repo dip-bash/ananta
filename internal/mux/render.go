@@ -217,9 +217,9 @@ func (m *Mux) render() {
 				y += h
 			}
 		}
-		// if len(ws.Cols) == 0 {
-		// 	m.drawEmptyHint(scr, top, rowH)
-		// }
+		if len(ws.Cols) == 0 {
+			m.drawEmptyHint(scr, top, rowH)
+		}
 		if showLabels && top-1 >= tt {
 			fg, bg := m.th.statusFG, m.th.statusBG
 			if wi == m.cur {
@@ -250,19 +250,19 @@ func thumbFix(c *screen.Cell) {
 
 // drawEmptyHint tells the user how to get started in a workspace with no
 // panes. It sits near the bottom so it doesn't fight with the wallpaper.
-// func (m *Mux) drawEmptyHint(scr *screen.Screen, top, rowH int) {
-// 	msg := "no panes"
-// 	if k := m.cfg.KeyFor("new_pane"); k != "" {
-// 		msg += " — press " + k + " to open a terminal"
-// 	}
-// 	if k := m.cfg.KeyFor("quit"); k != "" {
-// 		msg += " · " + k + " quits"
-// 	}
-// 	msg = truncate(" "+msg+" ", m.W)
-// 	y := top + rowH/2
-// 	if rowH >= 6 {
-// 		y = top + rowH - 2
-// 	}
-// 	x := max(0, (m.W-width.String(msg))/2)
-// 	scr.Text(x, y, msg, m.th.accent, m.th.statusBG, screen.AttrBold)
-// }
+func (m *Mux) drawEmptyHint(scr *screen.Screen, top, rowH int) {
+	msg := "no panes"
+	if k := m.cfg.KeyFor("new_pane"); k != "" {
+		msg += " — press " + k + " to open a terminal"
+	}
+	if k := m.cfg.KeyFor("quit"); k != "" {
+		msg += " · " + k + " quits"
+	}
+	msg = truncate(" "+msg+" ", m.W)
+	y := top + rowH/2
+	if rowH >= 6 {
+		y = top + rowH - 2
+	}
+	x := max(0, (m.W-width.String(msg))/2)
+	scr.Text(x, y, msg, m.th.accent, m.th.statusBG, screen.AttrBold)
+}
