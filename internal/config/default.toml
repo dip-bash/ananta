@@ -1,49 +1,52 @@
+
+# ---------------------------------------------------------------- ananta behaviour ------------------------------------------------------------
 # ananta configuration  (~/.config/ananta/config.toml)
-#
-# Any key you set here is merged over the defaults. To remove a default
-# shortcut, bind it to "none":   "leader+w" = "none"
+# Any key you set here is merged over the defaults. To remove a default shortcut, bind it to "none":   "leader+w" = "none"
 
 # The modifier used by every "leader+..." shortcut below.
-#   "alt" (default) | "ctrl" | "super" | "ctrl+alt" | ...
+# "alt" (default) | "ctrl" | "super" | "ctrl+alt" | ...
 # "super" and "ctrl" need a terminal that supports the extended (CSI-u)
-# keyboard protocol. Plain terminals can't send super, and ctrl+h/i/j/m are the
+# keyboard protocol. Plain terminals can't send super, and ctrl+h/i/j/m are the 
 # same bytes as backspace/tab/enter, so "alt" is the safe choice there.
-leader = "alt"
-extended_keys = "auto"     # "auto" (on for super/ctrl leaders) | "on" | "off"
 
-shell = ""                 # empty = $SHELL
+leader = "alt"
+extended_keys = "off"      # "auto" (on for super/ctrl leaders) | "on" | "off"
+
+shell = ""                 # empty = $SHELL (command that run after opening a pane)
 mouse = true               # click to focus, drag to select, wheel, overview clicks
 animate = true             # smooth scrolling / zoom / column resize
 animation_speed = 18.0     # higher = snappier
-fps = 60
+fps = 60                   # experimental
 scroll_mode = "fit"        # "fit": scroll just enough to show the focused column
                            # "center": always keep the focused column centered
-                           # (toggle at runtime with the center_mode action)
+                           # (toggle at runtime with the "center_mode" action)
+
 overview_scale = 0.3       # how far the overview zooms out (0.15 - 0.6)
 border_style = "single"    # single | double | heavy | ascii   (square corners only)
 column_widths = [0.33, 0.5, 0.66, 1.0]   # presets used by cycle_width (fraction of screen)
 default_column_width = 0.5
 resize_step = 0.05         # grow / shrink step (fraction of screen)
-app_clipboard = true       # let programs in a pane set the clipboard (OSC 52)
+app_clipboard = true       # let programs in a pane set the clipboard (OSC 52), use local clipboard over ssh
 scrollback_lines = 10000   # history kept per pane (0 = off); wheel / shift+pageup / copy mode read it
 
-# The wallpaper: a program that runs (display-only) behind your panes and shows
-# wherever no pane is. "default" uses wallpaper.toml next to this file (or the
-# built-in clock if it doesn't exist); or give another file name from this same
-# folder; "none" turns it off. See wallpaper.toml for how to write one.
+# The wallpaper: a program that runs (display-only) behind panes and shows visuales
+# "default" uses wallpaper.toml next to this file (or the built-in clock if it doesn't exist);
+# or give another file name from this same folder;
+# "none" turns it off. See wallpaper.toml for how to write one.
 wallpaper = "default"
 
 # Optional prefix key. When set, keys in [prefix_keys] work after it.
 prefix = ""                # e.g. "ctrl+b"
 
-# ---------------------------------------------------------------- status bar
+# ---------------------------------------------------------------- status bar ------------------------------------------------------------------
 [bar]
 position = "bottom"        # "top" | "bottom" | "hidden"   (toggle_bar action flips visibility)
-interval = 1.0             # seconds between cpu / mem / net / clock refreshes
-separator = " │ "
+interval = 1.0             # seconds between cpu / mem / net / clock refreshes (and also every widget have there own update time)
+separator = " │ "          # between two widget
+
 # Widgets are drawn in the order listed. Built-ins:
-#   session workspaces columns mode message title help
-#   cpu mem net battery load time date host user
+# session-name, workspaces, columns, mode, message title, help,
+# cpu, mem, net, battery, load, time, date, host, user
 # or the name of any custom widget defined under [bar.widgets.NAME] below.
 left   = ["session", "workspaces", "columns", "mode"]
 center = ["message"]
@@ -52,32 +55,31 @@ time_format = "15:04"      # Go layout: "15:04:05", "3:04 PM", "Mon 15:04"
 date_format = "Jan 2"
 mem_style = "used"         # used (3.1G/7.7G) | percent (41%) | both
 
+# ---------------------------------------------------------------- normal widgets ------------------------------------------------------------
 # Custom widgets: any shell command; the first line of its output is shown.
+
 # [bar.widgets.weather]
 # command  = "curl -s 'wttr.in/?format=%t'"
 # interval = 600           # seconds
 # prefix   = ""            # text shown before the output
 # color    = "#ebcb8b"
-#
-# Clickable widgets: add on_click (a shell command) and / or on_click_action
-# (an action such as "overview" or "goto_workspace 2"); on_right_click and
-# on_right_click_action work the same for the right button. A widget needs
-# either a command (its output is the text) or a fixed text.
+
+# ---------------------------------------------------------------- clickable widgets --------------------------------------------------------
+# Clickable widgets: add on_click (a shell command) or on_click_action (an action such as "overview" or "goto_workspace 2");
+# on_right_click and on_right_click_action work the same for the right button.
+# A widget needs either a command (its output is the text) or a fixed text.
+
 # [bar.widgets.monitor]
 # text = " htop "
 # on_click = 'ananta open "htop" -w 40%'   # runs inside this session
 # color = "#ebcb8b"
-#
+
 # [bar.widgets.view]
 # text = " overview "
 # on_click_action = "overview"
 # on_right_click_action = "center_mode"
-#
-# Termux battery (needs the Termux:API app + jq), then add "tbat" to a list above:
-# [bar.widgets.tbat]
-# command  = "termux-battery-status | jq -r '\"bat \\(.percentage)%\"'"
-# interval = 30
 
+# ---------------------------------------------------------------- theme -------------------------------------------------------------------
 [theme]                    # "#rrggbb", 0-255 (palette) or "default"
 border       = "#4c566a"
 focus_border = "#88c0d0"
@@ -89,6 +91,7 @@ accent       = "#88c0d0"
 selection_bg = "#5e81ac"
 selection_fg = "#eceff4"
 
+# ---------------------------------------------------------------- key bindings ------------------------------------------------------------
 # Actions (the in-app help lists whatever is bound here):
 #   focus_left focus_right focus_up focus_down
 #   move_left move_right move_up move_down
@@ -104,6 +107,8 @@ selection_fg = "#eceff4"
 #   scroll_up scroll_down     scroll the focused pane through its history
 #   detach                    leave the session running in the background
 #   toggle_bar help quit
+# for more info cheackout (https://github.com/dip-bash/ananta/wiki)
+
 [keys]
 "leader+h" = "focus_left"
 "leader+left" = "focus_left"
@@ -156,13 +161,19 @@ selection_fg = "#eceff4"
 "leader+*" = "move_to_workspace 8"
 "leader+(" = "move_to_workspace 9"
 "leader+/" = "help"
+
+# detach and delete the session
 "leader+Q" = "quit"
+
 # explicit chord (not tied to the leader): enter copy mode
 "alt+a" = "copy_mode"
+
 # scrolling back through history (also: mouse wheel, copy mode)
 "shift+pageup" = "scroll_up"
 "shift+pagedown" = "scroll_down"
+
 # detach from the session; it keeps running (re-attach with `ananta`)
 "leader+d" = "detach"
 
 [prefix_keys]
+
