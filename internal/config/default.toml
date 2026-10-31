@@ -50,7 +50,7 @@ separator = " │ "          # between two widget
 # or the name of any custom widget defined under [bar.widgets.NAME] below.
 left   = ["session", "workspaces", "columns", "mode"]
 center = ["message"]
-right  = ["cpu", "mem", "net", "battery", "time", "help"]
+right  = ["net", "cpu", "mem", "battery", "time", "help"]
 time_format = "15:04"      # Go layout: "15:04:05", "3:04 PM", "Mon 15:04"
 date_format = "Jan 2"
 mem_style = "used"         # used (3.1G/7.7G) | percent (41%) | both
