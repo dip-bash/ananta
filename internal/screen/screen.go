@@ -23,6 +23,8 @@ const (
 	AttrUnderline
 	AttrReverse
 	AttrDim
+	AttrStrike
+	AttrBlink
 )
 
 // Cell widths: a double-width character is a WideLead cell followed by a
@@ -121,9 +123,10 @@ type Renderer struct {
 	out       *bufio.Writer
 	prev, cur *Screen
 	clear     bool // emit a screen clear inside the next frame
+	lastStyle int  // cursor style last sent to the terminal (-1: unknown)
 }
 
-func NewRenderer(out *bufio.Writer) *Renderer { return &Renderer{out: out} }
+func NewRenderer(out *bufio.Writer) *Renderer { return &Renderer{out: out, lastStyle: -1} }
 
 func (r *Renderer) Resize(w, h int) {
 	r.cur = NewScreen(w, h)
@@ -131,7 +134,8 @@ func (r *Renderer) Resize(w, h int) {
 	for i := range r.prev.C {
 		r.prev.C[i].R = -1 // force full repaint
 	}
-	r.clear = true // cleared inside the next synchronized frame, so there's no flash
+	r.clear = true   // cleared inside the next synchronized frame, so there's no flash
+	r.lastStyle = -1 // a new client / size: send the cursor style again
 }
 
 func (r *Renderer) color(base int, c Col) {
@@ -140,6 +144,17 @@ func (r *Renderer) color(base int, c Col) {
 	}
 	w := r.out
 	w.WriteByte(';')
+	if c >= 0 && c < 16 && c&TrueBit == 0 {
+		// the 16 basic colours use their classic codes (30-37, 90-97, 40-47,
+		// 100-107): every terminal understands them, and they keep behaving
+		// exactly as they do outside ananta (theme palette, bold-as-bright)
+		code := base - 8 + int(c) // 38 -> 30.., 48 -> 40..
+		if c >= 8 {
+			code += 60 - 8 // bright: 90.., 100..
+		}
+		w.WriteString(strconv.Itoa(code))
+		return
+	}
 	w.WriteString(strconv.Itoa(base))
 	if c&TrueBit != 0 {
 		w.WriteString(";2;")
@@ -172,12 +187,21 @@ func (r *Renderer) sgr(c Cell) {
 	if c.A&AttrDim != 0 {
 		w.WriteString(";2")
 	}
+	if c.A&AttrStrike != 0 {
+		w.WriteString(";9")
+	}
+	if c.A&AttrBlink != 0 {
+		w.WriteString(";5")
+	}
 	r.color(38, c.FG)
 	r.color(48, c.BG)
 	w.WriteByte('m')
 }
 
-func (r *Renderer) Flush(cx, cy int, showCursor bool) {
+// Flush sends the changes since the last frame. style is the cursor style
+// the focused program asked for (0 default, 1-2 block, 3-4 underline,
+// 5-6 bar); it is only sent when it changes.
+func (r *Renderer) Flush(cx, cy int, showCursor bool, style int) {
 	w := r.out
 	r.cur.normalize()
 	w.WriteString("\x1b[?2026h\x1b[?25l")
@@ -220,6 +244,10 @@ func (r *Renderer) Flush(cx, cy int, showCursor bool) {
 	}
 	copy(r.prev.C, r.cur.C)
 	w.WriteString("\x1b[0m")
+	if showCursor && style != r.lastStyle {
+		w.WriteString("\x1b[" + strconv.Itoa(style) + " q")
+		r.lastStyle = style
+	}
 	if showCursor && cx >= 0 && cy >= 0 && cx < r.cur.W && cy < r.cur.H {
 		w.WriteString("\x1b[" + strconv.Itoa(cy+1) + ";" + strconv.Itoa(cx+1) + "H\x1b[?25h")
 	}

@@ -18,6 +18,7 @@ type seg struct {
 	fg, bg screen.Col
 	attr   uint8
 	tab    int
+	widget string // set when clicking this text should run the widget's click action
 }
 
 var warnColor = screen.RGB(0xbf, 0x61, 0x6a)
@@ -172,13 +173,21 @@ func (m *Mux) widget(name string, snap stats.Snapshot, now time.Time) []seg {
 		}
 	default:
 		if w, ok := bar.Widgets[name]; ok {
-			if out := snap.Custom[name]; out != "" {
-				s := m.plain(w.Prefix + out)
-				if w.Color != "" {
-					s.fg = config.ParseColor(w.Color)
-				}
-				return []seg{s}
+			text := w.Text
+			if w.Command != "" {
+				text = snap.Custom[name] // the command's latest output
 			}
+			if text == "" {
+				return nil
+			}
+			s := m.plain(w.Prefix + text)
+			if w.Color != "" {
+				s.fg = config.ParseColor(w.Color)
+			}
+			if w.Clickable() {
+				s.widget = name
+			}
+			return []seg{s}
 		}
 	}
 	return nil
@@ -209,6 +218,9 @@ func (m *Mux) drawSegs(scr *screen.Screen, y, x int, segs []seg) int {
 		x = scr.Text(x, y, s.text, s.fg, s.bg, s.attr)
 		if s.tab >= 0 {
 			m.tabs = append(m.tabs, tabHit{x0: x0, x1: x, ws: s.tab})
+		}
+		if s.widget != "" {
+			m.tabs = append(m.tabs, tabHit{x0: x0, x1: x, ws: -1, widget: s.widget})
 		}
 	}
 	return x

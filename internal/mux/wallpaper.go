@@ -31,6 +31,7 @@ func (m *Mux) startWallpaper() {
 		m.notify("wallpaper failed: " + err.Error())
 		return
 	}
+	m.applyHostColors(p)
 	m.wall = p
 }
 

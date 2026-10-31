@@ -185,13 +185,22 @@ func (t *State) oscColorResponse(j, num int) {
 		t.logf("failed to fetch osc color %d\n", j)
 		return
 	}
-
-	k, ok := t.colorOverride[Color(j)]
-	if ok {
-		j = int(k)
+	var r, g, b int
+	if k, ok := t.colorOverride[Color(j)]; ok { // the program set it itself
+		r, g, b = rgb(int(k))
+	} else {
+		def := [3]uint8{0xc0, 0xc0, 0xc0} // foreground, when the terminal hasn't told us
+		if Color(j) == DefaultBG {
+			def = [3]uint8{0, 0, 0}
+		}
+		if t.haveHost {
+			def = t.hostFG
+			if Color(j) == DefaultBG {
+				def = t.hostBG
+			}
+		}
+		r, g, b = int(def[0]), int(def[1]), int(def[2])
 	}
-
-	r, g, b := rgb(j)
 	t.w.Write([]byte(fmt.Sprintf("\033]%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", num, r, r, g, g, b, b)))
 }
 
@@ -201,10 +210,14 @@ func (t *State) osc4ColorResponse(j int) {
 		return
 	}
 
+	// The palette belongs to the user's terminal theme, which we don't know:
+	// only report colours the program itself has set, and stay silent otherwise
+	// (a made-up answer is worse than none).
 	k, ok := t.colorOverride[Color(j)]
-	if ok {
-		j = int(k)
+	if !ok {
+		return
 	}
+	j = int(k)
 
 	r, g, b := rgb(j)
 	t.w.Write([]byte(fmt.Sprintf("\033]4;%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", j, r, r, g, g, b, b)))

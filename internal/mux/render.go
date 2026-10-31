@@ -31,17 +31,18 @@ func glyphCell(g vt.Glyph) screen.Cell {
 	} else if g.Mode&vt.GlyphCont != 0 {
 		c.W = screen.WideCont
 	}
-	if g.Mode&1 != 0 {
-		c.A |= screen.AttrReverse
-	}
-	if g.Mode&2 != 0 {
-		c.A |= screen.AttrUnderline
-	}
-	if g.Mode&4 != 0 {
-		c.A |= screen.AttrBold
-	}
-	if g.Mode&16 != 0 {
-		c.A |= screen.AttrItalic
+	for _, m := range [...]struct {
+		glyph int16
+		attr  uint8
+	}{
+		{vt.GlyphReverse, screen.AttrReverse}, {vt.GlyphUnderline, screen.AttrUnderline},
+		{vt.GlyphBold, screen.AttrBold}, {vt.GlyphItalic, screen.AttrItalic},
+		{vt.GlyphFaint, screen.AttrDim}, {vt.GlyphStrike, screen.AttrStrike},
+		{vt.GlyphBlink, screen.AttrBlink},
+	} {
+		if g.Mode&m.glyph != 0 {
+			c.A |= m.attr
+		}
 	}
 	return c
 }
@@ -153,6 +154,7 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 	}
 	cur := p.Term.Cursor()
 	visible := p.Term.CursorVisible()
+	style := p.Term.CursorStyle()
 	p.Term.Unlock()
 
 	if title == "" {
@@ -167,6 +169,7 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 		scr.Text(x+w-9, y, fmt.Sprintf(" ↑%d ", v.hist-top), tc, screen.ColDefault, ta)
 	}
 	if !thumb && focused && visible && m.cm == nil && !p.Anchored && cur.X < iw && cur.Y < ih && cur.X < tcols && cur.Y < trows {
+		m.curStyle = style // the focused program's cursor shape (block / bar / underline)
 		return x + 1 + cur.X, y + 1 + cur.Y, true
 	}
 	return
@@ -217,9 +220,6 @@ func (m *Mux) render() {
 				y += h
 			}
 		}
-		// if len(ws.Cols) == 0 {
-		// 	m.drawEmptyHint(scr, top, rowH)
-		// }
 		if showLabels && top-1 >= tt {
 			fg, bg := m.th.statusFG, m.th.statusBG
 			if wi == m.cur {
@@ -233,7 +233,7 @@ func (m *Mux) render() {
 		m.drawHelp(scr)
 		showCur = false
 	}
-	m.rend.Flush(cx, cy, showCur)
+	m.rend.Flush(cx, cy, showCur, m.curStyle)
 }
 
 // thumbFix makes a cell safe for the scaled-down overview, where a
@@ -247,22 +247,3 @@ func thumbFix(c *screen.Cell) {
 	}
 	c.W = 0
 }
-
-// drawEmptyHint tells the user how to get started in a workspace with no
-// panes. It sits near the bottom so it doesn't fight with the wallpaper.
-// func (m *Mux) drawEmptyHint(scr *screen.Screen, top, rowH int) {
-// 	msg := "no panes"
-// 	if k := m.cfg.KeyFor("new_pane"); k != "" {
-// 		msg += " — press " + k + " to open a terminal"
-// 	}
-// 	if k := m.cfg.KeyFor("quit"); k != "" {
-// 		msg += " · " + k + " quits"
-// 	}
-// 	msg = truncate(" "+msg+" ", m.W)
-// 	y := top + rowH/2
-// 	if rowH >= 6 {
-// 		y = top + rowH - 2
-// 	}
-// 	x := max(0, (m.W-width.String(msg))/2)
-// 	scr.Text(x, y, msg, m.th.accent, m.th.statusBG, screen.AttrBold)
-// }

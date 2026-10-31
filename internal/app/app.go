@@ -72,6 +72,7 @@ func Run(cfg *config.Config) error {
 
 	m.SetSize(w, h)
 	m.Start()
+	m.QueryHostColors()
 
 	keys := make(chan []input.Key, 256)
 	post := make(chan func(), 16)

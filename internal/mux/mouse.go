@@ -191,6 +191,10 @@ func (m *Mux) handleMouse(ev *input.Mouse) {
 		m.leftPress(ev)
 		return
 	}
+	if ev.Press && ev.Btn&3 == 2 && !motion && m.barVisible() && ev.Y == m.barY() {
+		m.barClick(ev.X, true) // right click on the bar
+		return
+	}
 	// other buttons, releases and drags: pass through to the focused app
 	if m.overview {
 		return
@@ -204,11 +208,7 @@ func (m *Mux) handleMouse(ev *input.Mouse) {
 
 func (m *Mux) leftPress(ev *input.Mouse) {
 	if m.barVisible() && ev.Y == m.barY() {
-		for _, t := range m.tabs {
-			if ev.X >= t.x0 && ev.X < t.x1 {
-				m.cur = t.ws
-			}
-		}
+		m.barClick(ev.X, false)
 		return
 	}
 	h := m.hitAt(ev.X, ev.Y)
