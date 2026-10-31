@@ -112,11 +112,15 @@ func (m *Mux) spawnWith(cmdline, dir string, frac float64) (*pane.Pane, error) {
 	if m.cfg.AppClipboard {
 		clip = m.clipCh
 	}
-	return pane.New(pane.Options{
+	p, err := pane.New(pane.Options{
 		ID: m.nextID, Shell: m.cfg.Shell, Cmdline: cmdline, Dir: dir,
 		Cols: int(frac*float64(m.W)) - 2, Rows: m.tileH() - 2, Scrollback: m.cfg.ScrollbackLines,
 		Env: m.paneEnv(m.nextID),
 	}, m.dirty, m.exits, clip)
+	if err == nil {
+		m.applyHostColors(p)
+	}
+	return p, err
 }
 
 // paneEnv is what lets programs (and the `ananta` command run inside a pane)

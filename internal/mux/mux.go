@@ -61,7 +61,11 @@ type hit struct {
 	thumb      bool
 }
 
-type tabHit struct{ x0, x1, ws int }
+// tabHit is a clickable region of the status bar: a workspace tab, or a widget.
+type tabHit struct {
+	x0, x1, ws int
+	widget     string
+}
 
 type Mux struct {
 	cfg    *config.Config
@@ -101,6 +105,10 @@ type Mux struct {
 	clipCh      chan string // OSC 52 requests from programs running in panes
 	startDir    string      // where panes start when there is no focused pane to copy from
 	session     string      // name shown by the "session" bar widget ("" in local mode)
+	curStyle    int         // cursor style of the focused program (see vt.Terminal.CursorStyle)
+	hostFG      [3]uint8    // the user's terminal colours, learned by asking it
+	hostBG      [3]uint8
+	notifyCh    chan string // messages from background goroutines (click commands)
 	wall        *pane.Pane  // wallpaper (not part of any workspace); nil when disabled
 	wallRestart chan struct{}
 
@@ -118,6 +126,8 @@ func New(cfg *config.Config, out *bufio.Writer) *Mux {
 		dirty:       make(chan struct{}, 1),
 		exits:       make(chan *pane.Pane, 64),
 		clipCh:      make(chan string, 8),
+		notifyCh:    make(chan string, 8),
+		hostFG:      [3]uint8{0xc0, 0xc0, 0xc0}, // until the terminal tells us
 		wallRestart: make(chan struct{}, 1),
 		stats:       stats.New(),
 		scrollMode:  cfg.ScrollMode,
@@ -272,6 +282,9 @@ func (m *Mux) Loop(keys <-chan []input.Key, post <-chan func()) {
 			fn()
 			need = true
 		case <-m.dirty:
+			need = true
+		case msg := <-m.notifyCh:
+			m.notify(msg)
 			need = true
 		case text := <-m.clipCh:
 			m.copyText(text)

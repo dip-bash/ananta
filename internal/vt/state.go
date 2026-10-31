@@ -20,12 +20,21 @@ const (
 	attrWrap
 	attrWide   // first cell of a double-width character
 	attrWDummy // second cell of a double-width character
+	attrFaint
+	attrStrike
 )
 
 // Mode bits of Glyph for double-width characters.
 const (
-	GlyphWide = attrWide
-	GlyphCont = attrWDummy
+	GlyphReverse   = attrReverse
+	GlyphUnderline = attrUnderline
+	GlyphBold      = attrBold
+	GlyphItalic    = attrItalic
+	GlyphBlink     = attrBlink
+	GlyphFaint     = attrFaint
+	GlyphStrike    = attrStrike
+	GlyphWide      = attrWide
+	GlyphCont      = attrWDummy
 )
 
 const (
@@ -91,27 +100,30 @@ type parseState func(c rune)
 type State struct {
 	DebugLogger *log.Logger
 
-	w             io.Writer
-	mu            sync.Mutex
-	changed       ChangeFlag
-	cols, rows    int
-	lines         []line
-	altLines      []line
-	sb            []line // scrollback: lines that scrolled off the top of the primary screen
-	sbMax         int
-	onClipboard   func(string) // OSC 52 set-clipboard requests from the program
-	dirty         []bool       // line dirtiness
-	anydirty      bool
-	cur, curSaved Cursor
-	top, bottom   int // scroll limits
-	mode          ModeFlag
-	state         parseState
-	str           strEscape
-	csi           csiEscape
-	numlock       bool
-	tabs          []bool
-	title         string
-	colorOverride map[Color]Color
+	w              io.Writer
+	mu             sync.Mutex
+	changed        ChangeFlag
+	cols, rows     int
+	lines          []line
+	altLines       []line
+	sb             []line // scrollback: lines that scrolled off the top of the primary screen
+	sbMax          int
+	cursorStyle    int      // DECSCUSR: 0 default, 1-2 block, 3-4 underline, 5-6 bar (odd = blinking)
+	hostFG, hostBG [3]uint8 // the user's terminal colours, reported to programs that ask
+	haveHost       bool
+	onClipboard    func(string) // OSC 52 set-clipboard requests from the program
+	dirty          []bool       // line dirtiness
+	anydirty       bool
+	cur, curSaved  Cursor
+	top, bottom    int // scroll limits
+	mode           ModeFlag
+	state          parseState
+	str            strEscape
+	csi            csiEscape
+	numlock        bool
+	tabs           []bool
+	title          string
+	colorOverride  map[Color]Color
 }
 
 func newState(w io.Writer) *State {
@@ -307,6 +319,7 @@ func (t *State) reset() {
 	t.top = 0
 	t.bottom = t.rows - 1
 	t.mode = ModeWrap
+	t.cursorStyle = 0
 	t.clear(0, 0, t.rows-1, t.cols-1)
 	t.moveTo(0, 0)
 }
@@ -635,21 +648,27 @@ func (t *State) setAttr(attr []int) {
 		a := attr[i]
 		switch a {
 		case 0:
-			t.cur.Attr.Mode &^= attrReverse | attrUnderline | attrBold | attrItalic | attrBlink
+			t.cur.Attr.Mode &^= attrReverse | attrUnderline | attrBold | attrItalic | attrBlink | attrFaint | attrStrike
 			t.cur.Attr.FG = DefaultFG
 			t.cur.Attr.BG = DefaultBG
 		case 1:
 			t.cur.Attr.Mode |= attrBold
+		case 2:
+			t.cur.Attr.Mode |= attrFaint
 		case 3:
 			t.cur.Attr.Mode |= attrItalic
-		case 4:
+		case 4, 21: // underline (21 is a double underline)
 			t.cur.Attr.Mode |= attrUnderline
+		case 9:
+			t.cur.Attr.Mode |= attrStrike
+		case 29:
+			t.cur.Attr.Mode &^= attrStrike
 		case 5, 6: // slow, rapid blink
 			t.cur.Attr.Mode |= attrBlink
 		case 7:
 			t.cur.Attr.Mode |= attrReverse
-		case 21, 22:
-			t.cur.Attr.Mode &^= attrBold
+		case 22: // normal intensity: neither bold nor faint
+			t.cur.Attr.Mode &^= attrBold | attrFaint
 		case 23:
 			t.cur.Attr.Mode &^= attrItalic
 		case 24:
@@ -677,6 +696,13 @@ func (t *State) setAttr(attr []int) {
 			} else {
 				t.logf("gfx attr %d unknown\n", a)
 			}
+		case 58: // underline colour: parsed so its arguments aren't misread, but not drawn
+			if i+2 < len(attr) && attr[i+1] == 5 {
+				i += 2
+			} else if i+4 < len(attr) && attr[i+1] == 2 {
+				i += 4
+			}
+		case 59:
 		case 39:
 			t.cur.Attr.FG = DefaultFG
 		case 48:
@@ -859,4 +885,15 @@ func (t *State) clearHalf(x, y int) {
 	case g.Mode&attrWDummy != 0 && x > 0:
 		t.lines[y][x-1] = Glyph{Char: ' ', FG: g.FG, BG: g.BG}
 	}
+}
+
+// CursorStyle returns the cursor style the program asked for (DECSCUSR):
+// 0 default, 1/2 block, 3/4 underline, 5/6 bar; odd values blink.
+func (t *State) CursorStyle() int { return t.cursorStyle }
+
+// SetDefaultColors tells the emulator what the user's terminal looks like, so
+// programs that ask for the foreground / background colour (to choose between
+// a light and a dark theme) get the real answer.
+func (t *State) SetDefaultColors(fg, bg [3]uint8) {
+	t.hostFG, t.hostBG, t.haveHost = fg, bg, true
 }

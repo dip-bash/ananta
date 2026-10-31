@@ -16,6 +16,7 @@ type csiEscape struct {
 	// prefix is the private-parameter marker that follows "CSI": one of ? > = <
 	// (0 when absent). ">", "=" and "<" sequences are terminal extensions.
 	prefix byte
+	inter  byte // intermediate byte, e.g. ' ' in "CSI Ps SP q"
 }
 
 func (c *csiEscape) reset() {
@@ -24,6 +25,7 @@ func (c *csiEscape) reset() {
 	c.mode = 0
 	c.priv = false
 	c.prefix = 0
+	c.inter = 0
 }
 
 func (c *csiEscape) put(b byte) bool {
@@ -37,27 +39,68 @@ func (c *csiEscape) put(b byte) bool {
 
 func (c *csiEscape) parse() {
 	c.mode = c.buf[len(c.buf)-1]
+	c.args = c.args[:0]
+	c.inter = 0
 	if len(c.buf) == 1 {
 		return
 	}
-	s := string(c.buf)
-	c.args = c.args[:0]
+	s := string(c.buf[:len(c.buf)-1])
 	switch s[0] {
 	case '?', '>', '=', '<':
 		c.prefix = s[0]
 		c.priv = s[0] == '?'
 		s = s[1:]
 	}
-	s = s[:len(s)-1]
-	ss := strings.Split(s, ";")
-	for _, p := range ss {
+	// an intermediate byte (0x20-0x2F) sits between the parameters and the
+	// final byte, e.g. the space in "CSI 6 SP q" (set cursor style)
+	if k := strings.IndexFunc(s, func(r rune) bool { return r >= 0x20 && r <= 0x2f }); k >= 0 {
+		c.inter = s[k]
+		s = s[:k]
+	}
+	for _, p := range strings.Split(s, ";") {
+		if strings.Contains(p, ":") {
+			c.args = append(c.args, colonArgs(p)...)
+			continue
+		}
 		i, err := strconv.Atoi(p)
 		if err != nil {
-			//t.logf("invalid CSI arg '%s'\n", p)
 			break
 		}
 		c.args = append(c.args, i)
 	}
+}
+
+// colonArgs rewrites a parameter with colon sub-parameters into the
+// semicolon form the attribute code understands: "4:3" (curly underline) is
+// an underline, "38:2::r:g:b" is "38;2;r;g;b".
+func colonArgs(p string) []int {
+	f := strings.Split(p, ":")
+	head, err := strconv.Atoi(f[0])
+	if err != nil {
+		return nil
+	}
+	var nums []int
+	for _, x := range f[1:] {
+		if n, err := strconv.Atoi(x); err == nil { // empty fields (colour-space id) are skipped
+			nums = append(nums, n)
+		}
+	}
+	switch head {
+	case 4: // underline style: 4:0 is "off", any other style is an underline
+		if len(f) > 1 && f[1] == "0" {
+			return []int{24}
+		}
+		return []int{4}
+	case 38, 48, 58:
+		if len(nums) >= 2 && nums[0] == 5 {
+			return []int{head, 5, nums[1]}
+		}
+		if len(nums) >= 4 && nums[0] == 2 {
+			n := len(nums)
+			return []int{head, 2, nums[n-3], nums[n-2], nums[n-1]}
+		}
+	}
+	return []int{head}
 }
 
 func (c *csiEscape) arg(i, def int) int {
@@ -82,6 +125,10 @@ const (
 
 func (t *State) handleCSI() {
 	c := &t.csi
+	if c.inter == ' ' && c.mode == 'q' && c.prefix == 0 { // DECSCUSR: set cursor style
+		t.cursorStyle = clamp(c.arg(0, 0), 0, 6)
+		return
+	}
 	if c.prefix != 0 && c.prefix != '?' {
 		// ">", "=" and "<" sequences are extensions. Answer the identification
 		// queries; ignore the rest instead of misreading them as plain CSI

@@ -48,6 +48,12 @@ type View interface {
 	// CursorVisible returns the visible state of the cursor.
 	CursorVisible() bool
 
+	// CursorStyle is the cursor style the program set (DECSCUSR, 0-6).
+	CursorStyle() int
+
+	// SetDefaultColors sets the colours reported for foreground / background queries.
+	SetDefaultColors(fg, bg [3]uint8)
+
 	// SetScrollbackLimit sets how many history lines are kept (0 = none).
 	SetScrollbackLimit(n int)
 

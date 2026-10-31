@@ -93,6 +93,10 @@ func (m *Mux) handleKeys(ks []input.Key) {
 		}
 	}
 	for _, k := range ks {
+		if k.OSC != "" { // the terminal answering a colour query: never typed text
+			m.handleHostOSC(k.OSC)
+			continue
+		}
 		if k.Mouse != nil {
 			flush()
 			if m.cfg.Mouse {

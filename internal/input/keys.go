@@ -30,6 +30,7 @@ type Key struct {
 	Name  string
 	Raw   []byte
 	Mouse *Mouse
+	OSC   string // a terminal reply such as "11;rgb:1e1e/1e1e/2e2e" (never typed text)
 }
 
 // canon builds the canonical chord name. Modifier order: ctrl, alt, super, shift.
@@ -370,6 +371,17 @@ func parseKeys(buf []byte, partial bool) (out []Key, rest []byte) {
 			i++
 			continue
 		}
+		if buf[i+1] == ']' { // possibly the terminal answering a colour query
+			end, payload, st := scanOSC(buf[i:])
+			switch {
+			case st == oscComplete:
+				out = append(out, Key{OSC: payload})
+				i += end
+				continue
+			case st == oscPartial && partial:
+				return out, buf[i:]
+			}
+		}
 		switch n := buf[i+1]; {
 		case n == '[':
 			j := i + 2
@@ -469,8 +481,8 @@ func (a *Assembler) Feed(data []byte) {
 	if len(rest) > 0 {
 		gen := a.gen
 		delay := partialDelay
-		if len(rest) == 1 && rest[0] == 0x1b {
-			delay = loneEscDelay
+		if rest[0] == 0x1b && (len(rest) == 1 || (len(rest) == 2 && rest[1] == ']')) {
+			delay = loneEscDelay // the Esc key, or Alt+]
 		}
 		a.timer = time.AfterFunc(delay, func() { a.flush(gen) })
 	}
@@ -515,4 +527,80 @@ func (k Key) Rune() (rune, bool) {
 		return 0, false
 	}
 	return r, true
+}
+
+const (
+	oscNo = iota
+	oscPartial
+	oscComplete
+)
+
+// scanOSC looks at b (which starts with ESC ]) for a terminal reply of the
+// form "ESC ] <digits> ; <text> (BEL | ESC \)". It reports whether it is
+// complete, possibly cut short (more bytes may follow), or not an OSC reply at
+// all (so "ESC ]" is just Alt+]).
+func scanOSC(b []byte) (n int, payload string, state int) {
+	i := 2
+	for i < len(b) && b[i] >= '0' && b[i] <= '9' && i < 6 {
+		i++
+	}
+	if i == len(b) {
+		return 0, "", oscPartial // "ESC ]" or "ESC ] 1": can't tell yet
+	}
+	if i == 2 || b[i] != ';' {
+		return 0, "", oscNo
+	}
+	for j := i + 1; j < len(b) && j < 4096; j++ {
+		switch {
+		case b[j] == 0x07:
+			return j + 1, string(b[2:j]), oscComplete
+		case b[j] == 0x1b && j+1 < len(b) && b[j+1] == '\\':
+			return j + 2, string(b[2:j]), oscComplete
+		case b[j] == 0x1b && j+1 == len(b):
+			return 0, "", oscPartial
+		}
+	}
+	if len(b) < 4096 {
+		return 0, "", oscPartial
+	}
+	return 0, "", oscNo
+}
+
+// ParseOSCColor reads a colour reply such as "11;rgb:1e1e/1e1e/2e2e" or
+// "10;#d8dee9". It returns the OSC number (10 foreground, 11 background).
+func ParseOSCColor(payload string) (num int, rgb [3]uint8, ok bool) {
+	head, body, found := strings.Cut(payload, ";")
+	if !found {
+		return
+	}
+	num, err := strconv.Atoi(head)
+	if err != nil {
+		return 0, rgb, false
+	}
+	switch {
+	case strings.HasPrefix(body, "rgb:"):
+		parts := strings.Split(body[4:], "/")
+		if len(parts) != 3 {
+			return 0, rgb, false
+		}
+		for i, p := range parts {
+			if len(p) == 0 || len(p) > 4 {
+				return 0, rgb, false
+			}
+			v, err := strconv.ParseUint(p, 16, 32)
+			if err != nil {
+				return 0, rgb, false
+			}
+			max := uint64(1)<<(4*uint(len(p))) - 1
+			rgb[i] = uint8((v*255 + max/2) / max)
+		}
+		return num, rgb, true
+	case strings.HasPrefix(body, "#") && len(body) == 7:
+		v, err := strconv.ParseUint(body[1:], 16, 32)
+		if err != nil {
+			return 0, rgb, false
+		}
+		return num, [3]uint8{uint8(v >> 16), uint8(v >> 8), uint8(v)}, true
+	}
+	return 0, rgb, false
 }

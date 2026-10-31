@@ -59,6 +59,20 @@ mem_style = "used"         # used (3.1G/7.7G) | percent (41%) | both
 # prefix   = ""            # text shown before the output
 # color    = "#ebcb8b"
 #
+# Clickable widgets: add on_click (a shell command) and / or on_click_action
+# (an action such as "overview" or "goto_workspace 2"); on_right_click and
+# on_right_click_action work the same for the right button. A widget needs
+# either a command (its output is the text) or a fixed text.
+# [bar.widgets.monitor]
+# text = " htop "
+# on_click = 'ananta open "htop" -w 40%'   # runs inside this session
+# color = "#ebcb8b"
+#
+# [bar.widgets.view]
+# text = " overview "
+# on_click_action = "overview"
+# on_right_click_action = "center_mode"
+#
 # Termux battery (needs the Termux:API app + jq), then add "tbat" to a list above:
 # [bar.widgets.tbat]
 # command  = "termux-battery-status | jq -r '\"bat \\(.percentage)%\"'"

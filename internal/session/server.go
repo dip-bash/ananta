@@ -174,6 +174,7 @@ func (s *Server) attach(conn net.Conn, sz Size) {
 		}
 		s.m.SetAttached(true)
 		s.m.SetSize(sz.Cols, sz.Rows)
+		s.m.QueryHostColors()
 	}
 	asm := input.NewAssembler(func(ks []input.Key) { s.keys <- ks })
 	defer asm.Close()

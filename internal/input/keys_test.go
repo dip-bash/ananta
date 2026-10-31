@@ -117,3 +117,54 @@ func TestAssemblerWaitsForSlowLink(t *testing.T) {
 		t.Fatalf("delayed remainder not joined: %+v", got)
 	}
 }
+
+func TestTerminalColourReplyIsNotTypedText(t *testing.T) {
+	for _, in := range []string{
+		"\x1b]11;rgb:1e1e/1e1e/2e2e\x1b\\",
+		"\x1b]11;rgb:1e1e/1e1e/2e2e\x07",
+	} {
+		ks := ParseKeys([]byte(in + "a"))
+		if len(ks) != 2 || ks[0].OSC != "11;rgb:1e1e/1e1e/2e2e" || ks[1].Name != "a" {
+			t.Errorf("%q parsed as %+v", in, ks)
+		}
+	}
+	// Alt+] is still Alt+]
+	if ks := ParseKeys([]byte("\x1b]x")); len(ks) != 2 || ks[0].Name != "alt+]" {
+		t.Errorf("alt+] broken: %+v", ks)
+	}
+}
+
+func TestColourReplySplitAcrossReads(t *testing.T) {
+	ch := make(chan []Key, 8)
+	a := NewAssembler(func(ks []Key) { ch <- ks })
+	defer a.Close()
+	for _, chunk := range []string{"\x1b]1", "1;rgb:fa", "fa/fb", "fb/fc", "fc\x1b", "\\z"} {
+		a.Feed([]byte(chunk))
+	}
+	var got []Key
+	for len(ch) > 0 {
+		got = append(got, <-ch...)
+	}
+	if len(got) != 2 || got[0].OSC != "11;rgb:fafa/fbfb/fcfc" || got[1].Name != "z" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestParseOSCColor(t *testing.T) {
+	cases := map[string][3]uint8{
+		"11;rgb:ffff/0000/8080": {255, 0, 128},
+		"10;rgb:ff/00/80":       {255, 0, 128},
+		"11;rgb:f/0/8":          {255, 0, 136},
+		"10;#d8dee9":            {0xd8, 0xde, 0xe9},
+	}
+	for in, want := range cases {
+		if _, got, ok := ParseOSCColor(in); !ok || got != want {
+			t.Errorf("%q = %v %v, want %v", in, got, ok, want)
+		}
+	}
+	for _, bad := range []string{"", "11;", "11;rgb:1/2", "x;rgb:1/2/3", "11;blue"} {
+		if _, _, ok := ParseOSCColor(bad); ok {
+			t.Errorf("%q should not parse", bad)
+		}
+	}
+}

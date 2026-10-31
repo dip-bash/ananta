@@ -32,10 +32,23 @@ type Theme struct {
 
 // CustomWidget is a user-defined status-bar widget backed by a shell command.
 type CustomWidget struct {
-	Command  string  `toml:"command"`
-	Interval float64 `toml:"interval"`
+	Command  string  `toml:"command"`  // shows the first line of its output, refreshed every Interval
+	Interval float64 `toml:"interval"` // seconds
+	Text     string  `toml:"text"`     // a fixed label (used when there is no command)
 	Prefix   string  `toml:"prefix"`
 	Color    string  `toml:"color"`
+
+	// Making a widget clickable: a shell command and / or an action to run
+	// when it is clicked with the left or the right mouse button.
+	OnClick            string `toml:"on_click"`
+	OnClickAction      string `toml:"on_click_action"`
+	OnRightClick       string `toml:"on_right_click"`
+	OnRightClickAction string `toml:"on_right_click_action"`
+}
+
+// Clickable reports whether clicking the widget does anything.
+func (w CustomWidget) Clickable() bool {
+	return w.OnClick != "" || w.OnClickAction != "" || w.OnRightClick != "" || w.OnRightClickAction != ""
 }
 
 type Bar struct {
@@ -209,6 +222,16 @@ func (cfg *Config) compile() {
 	if cfg.Bar.Interval < 0.2 {
 		cfg.Bar.Interval = 1
 	}
+	for name, w := range cfg.Bar.Widgets {
+		if w.Command == "" && w.Text == "" {
+			cfg.warn("bar widget %s has neither command nor text", name)
+		}
+		for _, spec := range []string{w.OnClickAction, w.OnRightClickAction} {
+			if act, _, _ := strings.Cut(strings.TrimSpace(spec), " "); act != "" && ActionIndex(act) == len(ActionInfo) {
+				cfg.warn("bar widget %s: unknown action %s", name, act)
+			}
+		}
+	}
 	for _, list := range [][]string{cfg.Bar.Left, cfg.Bar.Center, cfg.Bar.Right} {
 		for _, w := range list {
 			if _, custom := cfg.Bar.Widgets[w]; !BuiltinWidgets[w] && !custom {
@@ -251,7 +274,7 @@ func decodeInto(cfg *Config, text string) error {
 // the state ananta needs (alt screen, mouse, extended keyboard) and undo it.
 func (c *Config) TermModes() (setup, teardown string) {
 	setup = "\x1b[?1049h\x1b[?25l"
-	teardown = "\x1b[0m\x1b[?25h\x1b[?1049l"
+	teardown = "\x1b[0m\x1b[0 q\x1b[?25h\x1b[?1049l"
 	if c.Mouse {
 		setup += "\x1b[?1002h\x1b[?1006h"
 		teardown = "\x1b[?1006l\x1b[?1002l" + teardown
