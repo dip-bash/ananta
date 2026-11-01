@@ -63,11 +63,12 @@ func (m *Mux) runShell(cmdline string) {
 	if m.session != "" {
 		cmd.Env = append(cmd.Env, "ANANTA_SESSION="+m.session)
 	}
+	cmd.Dir = m.startDir
 	if p := m.focusedPane(); p != nil {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ANANTA_PANE=%d", p.ID))
-	}
-	if dir, err := os.UserHomeDir(); err == nil {
-		cmd.Dir = dir
+		if d := p.Cwd(); d != "" {
+			cmd.Dir = d
+		}
 	}
 	var stderr tailBuffer
 	cmd.Stderr = &stderr
