@@ -21,24 +21,45 @@ import (
 	"ananta/internal/session"
 )
 
-const usage = `usage: ananta [-config file] [-s name] [command [name]]
+const usage = `
+	Usage:
+	  ananta [OPTIONS] [COMMAND] [ARGS]
 
-commands:
-  (none)         attach to session "main", creating it if needed
-  new [name]     create a session and attach
-  attach [name]  attach to an existing session
-  ls             list sessions
-  kill [name]    end a session
-  local          run in this terminal only (nothing survives closing it)
-  init           write config.toml and wallpaper.toml to ~/.config/ananta/
-  print-config   print the default config
-  print-wallpaper  print the default wallpaper file
+	Options:
+	  -config FILE    use a custom configuration file
+	  -s NAME         select a session (default: main)
 
-control a running session (details: ananta help):
-  open "cmd" [-n WORKSPACE] [-w WIDTH] [-s SESSION]   run a program in a new pane
-  workspace N | focus DIR | width W | send "text" | close | list | action NAME
-  (the program goes in double quotes; the session defaults to the one you are
-   inside, else "main")
+	Session commands:
+	  (none)          attach to session "main", creating it if needed
+	  new [NAME]      create and attach to a session
+	  attach [NAME]   attach to an existing session
+	  ls              list available sessions
+	  kill [NAME]     terminate a session
+	  local           run locally without session persistence
+
+	Configuration:
+	  init            generate default configuration files
+	  print-config    print the default config
+	  print-wallpaper print the default wallpaper
+
+	Session controls:
+	  open "CMD" [-n WORKSPACE] [-w WIDTH] [-s SESSION]
+					  open a program in a new pane
+	  workspace N     switch workspace
+	  focus DIR       focus a pane in a direction
+	  width W         set pane width
+	  send "TEXT"     send text to a pane
+	  close           close the current pane
+	  list            list panes
+	  action NAME     execute an action
+
+	Notes:
+	  - Commands control the current session by default.
+	  - If not inside a session, commands default to "main".
+	  - Program arguments must be enclosed in double quotes.
+
+	Run 'ananta help' for more information.
+
 `
 
 func main() {

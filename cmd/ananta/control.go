@@ -18,27 +18,31 @@ var controlCommands = map[string]bool{
 	"close": true, "send": true, "list": true, "action": true,
 }
 
-const controlUsage = `Control a running session from anywhere (a shell, a script, a keybinding):
+const controlUsage = `
+	Control a running session from anywhere (shell, script, or keybinding):
 
-  ananta open "htop" -n 3 -w 33% -s test   open htop in workspace 3 at 33% width, session "test"
-  ananta open "tail -f /var/log/syslog" --below
-  ananta open "make watch" -k              -k / --keep-focus: don't move keyboard focus to it
-  ananta open "htop" --focus -n 3          --focus: also switch the view to that workspace
-  ananta open                              no program: a new shell
-  ananta workspace 3                       switch the view to workspace 3
-  ananta focus left|right|up|down          move focus
-  ananta width 50%                         set the focused column's width
-  ananta send -e "make test"               type into the focused pane (-e presses Enter)
-  ananta close                             close the focused pane
-  ananta list                              list panes (id, workspace, column, width)
-  ananta action overview                   run any action, as if its key was pressed
-  ananta action goto_workspace 2
+	  ananta open "htop" -n 3 -w 33% -s test    open htop in workspace 3 at 33% width, session "test"
+	  ananta open "tail -f /var/log/syslog" --below
+	  ananta open "make watch" -k               keep keyboard focus on the current pane
+	  ananta open "htop" --focus -n 3           also switch the view to workspace 3
+	  ananta open                               open a new shell
+	  ananta workspace 3                       switch the view to workspace 3
+	  ananta focus left|right|up|down           move focus
+	  ananta width 50%                          set the focused column's width
+	  ananta send -e "make test"                send text to the focused pane (-e presses Enter)
+	  ananta close                              close the focused pane
+	  ananta list                               list panes (ID, workspace, column, width)
+	  ananta action overview                    run an action, as if its key was pressed
+	  ananta action goto_workspace 2            run an action with arguments
 
-The program to run goes in double quotes, as ONE argument.
-Pane commands accept -p ID to target a pane (see "ananta list").
+	  -k / --keep-focus                         don't move keyboard focus to the new pane
+	  --focus                                   switch the view to the target workspace
 
-Which session: -s NAME, else the session you are inside (when run from a pane
-of ananta), else "main".
+	The program to run must be enclosed in double quotes as ONE argument.
+	Pane commands accept -p ID to target a pane (see "ananta list").
+
+	Which session: -s NAME, else the session you are inside (when run from a
+	pane of Ananta), else "main".
 `
 
 // resolveSession picks the session a control command talks to.
