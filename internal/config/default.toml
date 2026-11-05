@@ -51,9 +51,9 @@ separator = " │ "          # between two widget
 left   = ["session", "workspaces", "columns", "mode"]
 center = ["message"]
 right  = ["net", "cpu", "mem", "battery", "time", "help"]
-time_format = "15:04"      # Go layout: "15:04:05", "3:04 PM", "Mon 15:04"
+time_format = "15:04 PM"      # Go layout: "15:04:05", "3:04 PM", "Mon 15:04"
 date_format = "Jan 2"
-mem_style = "used"         # used (3.1G/7.7G) | percent (41%) | both
+mem_style = "percent"         # used (3.1G/7.7G) | percent (41%) | both
 
 # ---------------------------------------------------------------- normal widgets ------------------------------------------------------------
 # Custom widgets: any shell command; the first line of its output is shown.
