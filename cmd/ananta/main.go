@@ -21,6 +21,8 @@ import (
 	"ananta/internal/session"
 )
 
+var version = "dev"
+
 const usage = `
 	Usage:
 	  ananta [OPTIONS] [COMMAND] [ARGS]
@@ -67,6 +69,7 @@ func main() {
 	sessFlag := flag.String("s", "main", "session name")
 	initFlag := flag.Bool("init", false, "write the default config file and exit")
 	printFlag := flag.Bool("print-config", false, "print the default config and exit")
+	printVersion := flag.Bool("v", false, "print the version and exit")
 	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	flag.Parse()
 
@@ -93,6 +96,9 @@ func main() {
 	if *printFlag {
 		cmd = "print-config"
 	}
+	if *printVersion {
+		cmd = "print-version"
+	}
 	cfgPath := config.Path(*cfgFlag)
 
 	var err error
@@ -103,6 +109,8 @@ func main() {
 		fmt.Print(config.DefaultWallpaper)
 	case "init":
 		err = writeDefault(cfgPath)
+	case "print-version":
+		fmt.Printf("Ananata Version: %s",version)
 	case "help":
 		fmt.Print(usage, "\n", controlUsage)
 	case "ls":
