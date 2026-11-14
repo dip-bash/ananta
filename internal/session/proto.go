@@ -53,12 +53,14 @@ type Info struct {
 	PID      int
 }
 
+func appendFrame(b []byte, typ byte, payload []byte) []byte {
+	b = append(b, typ, 0, 0, 0, 0)
+	binary.BigEndian.PutUint32(b[len(b)-4:], uint32(len(payload)))
+	return append(b, payload...)
+}
+
 func writeFrame(w io.Writer, typ byte, payload []byte) error {
-	buf := make([]byte, 5+len(payload))
-	buf[0] = typ
-	binary.BigEndian.PutUint32(buf[1:5], uint32(len(payload)))
-	copy(buf[5:], payload)
-	_, err := w.Write(buf)
+	_, err := w.Write(appendFrame(make([]byte, 0, 5+len(payload)), typ, payload))
 	return err
 }
 

@@ -18,16 +18,104 @@ import (
 	"ananta/internal/mux"
 )
 
+// maxBacklog bounds what is queued for a client that has stopped reading (a stalled SSH link, a terminal that stopped
+// drawing, a stopped process). Past it the backlog is dropped and the client gets a full repaint once it reads again.
+const maxBacklog = 4 << 20
+
+// client is one attached terminal. Frames are queued and written by the client's own goroutine (writeLoop), so a
+// client that stops reading never blocks the mux.
 type client struct {
 	conn net.Conn
-	wmu  sync.Mutex
+	done chan struct{} // closed when writeLoop returns
+
+	mu      sync.Mutex
+	cond    *sync.Cond
+	queue   []byte // whole frames, ready to write
+	stale   bool   // backlog dropped: discard output until the client reads again, then repaint
+	closing bool   // write what is queued, then close
+	closed  bool
 }
 
-func (c *client) send(typ byte, payload []byte) error {
-	c.wmu.Lock()
-	defer c.wmu.Unlock()
+func newClient(conn net.Conn) *client {
+	c := &client{conn: conn, done: make(chan struct{})}
+	c.cond = sync.NewCond(&c.mu)
+	return c
+}
+
+// send queues a frame. It never blocks.
+func (c *client) send(typ byte, payload []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closing || c.closed || c.stale {
+		return
+	}
+
+	if len(c.queue)+5+len(payload) > maxBacklog {
+		c.queue = c.queue[:0]
+		c.stale = true
+	} else {
+		c.queue = appendFrame(c.queue, typ, payload)
+	}
+	c.cond.Signal()
+}
+
+// finish queues a last frame (detached, session ended) and closes the connection once it is written. A client that
+// isn't reading is cut off after 3 seconds.
+func (c *client) finish(typ byte, payload []byte) {
+	c.mu.Lock()
+	if c.closing || c.closed {
+		c.mu.Unlock()
+		return
+	}
+	c.queue = appendFrame(c.queue, typ, payload)
+	c.closing = true
+	c.cond.Signal()
+	c.mu.Unlock()
+
 	_ = c.conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
-	return writeFrame(c.conn, typ, payload)
+}
+
+// close drops the connection at once.
+func (c *client) close() {
+	c.mu.Lock()
+	c.closed = true
+	c.cond.Signal()
+	c.mu.Unlock()
+
+	_ = c.conn.Close()
+}
+
+// writeLoop writes queued frames until the client is closed or finished, and returns the write error that ended it,
+// if any. resync is called when a client whose backlog was dropped is reading again.
+func (c *client) writeLoop(resync func()) error {
+	defer close(c.done)
+	defer c.conn.Close()
+
+	var buf []byte
+	for {
+		c.mu.Lock()
+		for len(c.queue) == 0 && !c.stale && !c.closing && !c.closed {
+			c.cond.Wait()
+		}
+		if c.closed || (c.closing && len(c.queue) == 0) {
+			c.mu.Unlock()
+			return nil
+		}
+		if c.stale && len(c.queue) == 0 {
+			c.stale = false
+			// CAN aborts any escape sequence the dropped backlog cut in half
+			c.queue = appendFrame(c.queue, MsgOutput, []byte("\x18"))
+			c.mu.Unlock()
+			resync()
+			continue
+		}
+		buf, c.queue = c.queue, buf[:0]
+		c.mu.Unlock()
+
+		if _, err := c.conn.Write(buf); err != nil {
+			return err
+		}
+	}
 }
 
 // Server owns one mux and serves at most one attached client at a time.
@@ -54,12 +142,8 @@ type Server struct {
 type clientWriter struct{ s *Server }
 
 func (w clientWriter) Write(p []byte) (int, error) {
-	c := w.s.current()
-	if c == nil {
-		return len(p), nil
-	}
-	if err := c.send(MsgOutput, p); err != nil {
-		w.s.drop(c) // clears s.cur at once, so later chunks are discarded, not retried
+	if c := w.s.current(); c != nil {
+		c.send(MsgOutput, p)
 	}
 	return len(p), nil
 }
@@ -78,7 +162,7 @@ func (s *Server) drop(c *client) {
 		s.cur = nil
 	}
 	s.mu.Unlock()
-	_ = c.conn.Close()
+	c.close()
 	if was {
 		// from a goroutine: drop can run on the mux goroutine (while drawing),
 		// which must never block on its own work queue
@@ -100,10 +184,7 @@ func (s *Server) detachCurrent() {
 	s.mu.Unlock()
 	s.m.SetAttached(false)
 	if c != nil {
-		go func() {
-			_ = c.send(MsgDetached, []byte("detached"))
-			_ = c.conn.Close()
-		}()
+		c.finish(MsgDetached, []byte("detached"))
 	}
 }
 
@@ -157,16 +238,23 @@ func (s *Server) replyInfo(conn net.Conn) {
 }
 
 func (s *Server) attach(conn net.Conn, sz Size) {
-	c := &client{conn: conn}
+	c := newClient(conn)
+	c.send(MsgSetup, []byte(s.setup+"\x00"+s.teardown)) // queued before the mux can draw to c
+	go func() {
+		// from a goroutine: the writer must never wait on the mux's work queue
+		resync := func() { go func() { s.post <- s.m.Redraw }() }
+		if err := c.writeLoop(resync); err != nil {
+			s.drop(c)
+		}
+	}()
+
 	s.mu.Lock()
 	old := s.cur
 	s.cur = c
 	s.mu.Unlock()
 	if old != nil {
-		_ = old.send(MsgDetached, []byte("another client attached"))
-		_ = old.conn.Close()
+		old.finish(MsgDetached, []byte("another client attached"))
 	}
-	_ = c.send(MsgSetup, []byte(s.setup+"\x00"+s.teardown))
 	s.firstOnce.Do(func() { s.first <- sz })
 	s.post <- func() {
 		if sz.Cwd != "" {
@@ -261,8 +349,8 @@ func Serve(cfg *config.Config, name string) error {
 	s.m.Loop(s.keys, s.post)
 	s.m.Shutdown()
 	if c := s.current(); c != nil {
-		_ = c.send(MsgEnded, nil)
-		_ = c.conn.Close()
+		c.finish(MsgEnded, nil)
+		<-c.done
 	}
 	return nil
 }

@@ -246,6 +246,10 @@ func (m *Mux) SetAttached(on bool) {
 	m.attached = on
 }
 
+// Redraw repaints the whole screen on the next frame, for a client that missed
+// earlier frames.
+func (m *Mux) Redraw() { m.rend.Resize(m.W, m.H) }
+
 // SetSessionName sets the name shown by the "session" bar widget.
 func (m *Mux) SetSessionName(name string) { m.session = name }
 
