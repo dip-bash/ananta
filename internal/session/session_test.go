@@ -195,6 +195,78 @@ func TestStopSurvivesFullQueue(t *testing.T) {
 	}
 }
 
+// send must never block on a client that has stopped reading. Past maxBacklog the queue is dropped; once the client
+// reads again it gets CAN and a repaint request before any newer output.
+func TestClientBacklog(t *testing.T) {
+	srv, cli := net.Pipe() // unbuffered: a write waits until the other end reads
+	defer cli.Close()
+	c := newClient(srv)
+	resynced := make(chan struct{}, 4)
+	go func() { _ = c.writeLoop(func() { resynced <- struct{}{} }) }()
+
+	chunk := bytes.Repeat([]byte("x"), 64<<10)
+	start := time.Now()
+	for i := 0; i < 2*maxBacklog/len(chunk); i++ {
+		c.send(MsgOutput, chunk)
+	}
+	if d := time.Since(start); d > time.Second {
+		t.Fatalf("send blocked for %v", d)
+	}
+	c.mu.Lock()
+	stale, queued := c.stale, len(c.queue)
+	c.mu.Unlock()
+	if !stale || queued != 0 {
+		t.Fatalf("after overflowing: stale=%v queued=%d", stale, queued)
+	}
+
+	frames := make(chan string, 64)
+	go func() {
+		defer close(frames)
+		for {
+			typ, p, err := readFrame(cli)
+			if err != nil {
+				return
+			}
+			if !bytes.Equal(p, chunk) { // skip what was already in flight
+				frames <- string(typ) + string(p)
+			}
+		}
+	}()
+	select {
+	case <-resynced:
+	case <-time.After(2 * time.Second):
+		t.Fatal("no repaint requested after the client read again")
+	}
+	c.send(MsgOutput, []byte("after"))
+	c.finish(MsgEnded, nil)
+
+	var got []string
+	for f := range frames {
+		got = append(got, f)
+	}
+	want := []string{"O\x18", "Oafter", "Q"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("frames = %q, want %q", got, want)
+	}
+	<-c.done
+}
+
+// finish must not hang on a client that never reads again: it is cut off after the write deadline.
+func TestFinishCutsOffStalledClient(t *testing.T) {
+	srv, cli := net.Pipe()
+	defer cli.Close()
+	c := newClient(srv)
+	go func() { _ = c.writeLoop(func() {}) }()
+
+	c.send(MsgOutput, []byte("nobody reads this"))
+	c.finish(MsgDetached, []byte("bye"))
+	select {
+	case <-c.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("writer still blocked on a client that never reads")
+	}
+}
+
 // shellForTest lets the test run against any shell: TEST_SHELL=/bin/bash go test ...
 func shellForTest() string {
 	if s := os.Getenv("TEST_SHELL"); s != "" {
@@ -303,6 +375,78 @@ func TestControlCommands(t *testing.T) {
 	}
 
 	if err := Kill("ctl"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not exit")
+	}
+}
+
+// A client that stops reading (a stalled SSH link, a terminal that stopped drawing) must not stall the session:
+// commands keep answering, the client stays attached, and once it reads again it catches up.
+func TestStalledClient(t *testing.T) {
+	skipWithoutPTY(t)
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+	t.Setenv("SHELL", shellForTest())
+	cfg, err := config.Load(filepath.Join(t.TempDir(), "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.WallpaperSpec = nil
+	cfg.Animate = false
+	done := make(chan error, 1)
+	go func() { done <- Serve(cfg, "slow") }()
+	for i := 0; i < 100 && !Exists("slow"); i++ {
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	c := attach(t, "slow")
+	defer c.Close()
+	if typ, _, err := readFrame(c); err != nil || typ != MsgSetup {
+		t.Fatalf("expected setup frame, got %c %v", typ, err)
+	}
+	for i := 0; i < 100; i++ {
+		if _, err := Control("slow", mux.Request{Op: "list"}); err == nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	run := func(r mux.Request) string {
+		t.Helper()
+		out, err := Control("slow", r)
+		if err != nil {
+			t.Fatalf("%+v: %v", r, err)
+		}
+		return out
+	}
+
+	// every line differs, so each frame repaints the pane, while this client reads nothing. The flood also stops by
+	// itself, so a failed run can't leave it spinning.
+	flood := run(mux.Request{Op: "open", Command: "end=$(($(date +%s)+4)); while [ $(date +%s) -lt $end ]; do seq 1 100000; done"})
+	time.Sleep(1500 * time.Millisecond) // long enough to fill the socket buffers
+
+	for i := 0; i < 5; i++ {
+		start := time.Now()
+		run(mux.Request{Op: "list"})
+		if d := time.Since(start); d > 500*time.Millisecond {
+			t.Fatalf("a command took %v while a client wasn't reading", d)
+		}
+	}
+	infos, err := List()
+	if err != nil || len(infos) != 1 || !infos[0].Attached {
+		t.Fatalf("the stalled client should still be attached: %+v err=%v", infos, err)
+	}
+
+	run(mux.Request{Op: "close", Pane: atoi(t, flood)})
+	run(mux.Request{Op: "open", Command: "echo caught-$((40+2)); sleep 30"})
+	if ok, _ := readUntil(t, c, "caught-42", 0); !ok {
+		t.Fatal("the client never caught up")
+	}
+
+	if err := Kill("slow"); err != nil {
 		t.Fatal(err)
 	}
 	select {
