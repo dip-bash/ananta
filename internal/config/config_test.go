@@ -30,6 +30,7 @@ func TestLeaderChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Leader = "super"
+	cfg.ExtendedKeys = "auto" // default.toml turns it off; auto is what follows the leader
 	cfg.compile()
 	if cfg.Keymap["super+h"].Name != "focus_left" {
 		t.Fatal("leader=super did not rebind leader+h")
