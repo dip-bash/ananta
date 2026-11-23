@@ -1,6 +1,6 @@
-# ananta
+# T-Strip
 
-<img width="100%" alt="Ananta" src="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
+<img width="100%" alt="T-Strip" src="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
 
 A scrollable tiling terminal multiplexer written in Go. Panes live in columns
 on an endless horizontal strip; focusing a column glides the view to it.
@@ -9,39 +9,39 @@ a configurable status bar, a live wallpaper, mouse support, per-pane
 scrollback, a keyboard copy mode, and persistent sessions (detach / reattach).
 
 ## Demo
-[ananta.webm](https://github.com/user-attachments/assets/00d637a2-13cf-4b0e-8e37-f38ff4092152)
+[T-Strip demo](https://github.com/user-attachments/assets/00d637a2-13cf-4b0e-8e37-f38ff4092152)
 
 
 ## Install
 ```
-curl -sSL https://raw.githubusercontent.com/dip-bash/ananta/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/dip-bash/tstrip/main/install.sh | bash
 ```
 
 ## Build
 
     go mod tidy
-    make build              # or: go build -o ananta ./cmd/ananta
-    ./ananta init           # writes ~/.config/ananta/config.toml and wallpaper.toml
-    ./ananta                # attach to session "main" (created on first use)
+    make build              # or: go build -o tst ./cmd/tst
+    ./tst init              # writes ~/.config/tst/config.toml and wallpaper.toml
+    ./tst                   # attach to session "main" (created on first use)
 
-ananta starts empty: press `leader+enter` (alt+enter by default) to open the
-first terminal. Closing every pane does not end ananta; only `leader+Q` quits
+T-Strip starts empty: press `leader+enter` (alt+enter by default) to open the
+first terminal. Closing every pane does not end T-Strip; only `leader+Q` quits
 (and, in a session, ends it). `make cross-build` produces linux x86_64 and
 aarch64 binaries.
-`./ananta print-config` prints every option with comments.
+`./tst print-config` prints every option with comments.
 
 ## Sessions (detach / reattach)
 
 A background server owns every pane, so your programs keep running when the
 terminal closes or SSH drops. The terminal you type in is just a client.
 
-    ananta                 attach to session "main" (creating it if needed)
-    ananta -s work         ... or any other name
-    ananta new work        create + attach (errors if it exists)
-    ananta attach work     attach to an existing session
-    ananta ls              list sessions (panes, attached / detached)
-    ananta kill work       end a session and everything in it
-    ananta local           no background session; closing the terminal ends it
+    tst                 attach to session "main" (creating it if needed)
+    tst -s work         ... or any other name
+    tst new work        create + attach (errors if it exists)
+    tst attach work     attach to an existing session
+    tst ls              list sessions (panes, attached / detached)
+    tst kill work       end a session and everything in it
+    tst local           no background session; closing the terminal ends it
 
 A new session starts with no panes; it keeps running with zero panes until
 `leader+Q`. Detach with `leader+d`; attaching from a second terminal takes the session
@@ -49,7 +49,7 @@ over and re-lays it out for the new size. `leader+Q` ends the session. The
 session name is shown in the status bar (the `session` widget; remove it from
 the bar lists to hide it).
 
-Sockets and server logs live in `$XDG_RUNTIME_DIR/ananta-<uid>/` (or the temp
+Sockets and server logs live in `$XDG_RUNTIME_DIR/tst-<uid>/` (or the temp
 dir). The server reads the config when it starts: restart the session to apply
 changes. Panes started later inherit the environment the server was launched
 with, so e.g. a changed `SSH_AUTH_SOCK` is not picked up.
@@ -59,19 +59,19 @@ with, so e.g. a changed `SSH_AUTH_SOCK` is not picked up.
 Any shell, script or keybinding can drive a running session. The program to
 run goes in **double quotes, as one argument**:
 
-    ananta open "htop" -n 3 -w 0.33 -s test    # htop, workspace 3, 33% wide, session "test"
-    ananta open "tail -f /var/log/syslog" --below
-    ananta open "make watch" -k                # -k: keep keyboard focus where it is
-    ananta open                                # no program: a new shell
+    tst open "htop" -n 3 -w 0.33 -s test    # htop, workspace 3, 33% wide, session "test"
+    tst open "tail -f /var/log/syslog" --below
+    tst open "make watch" -k                # -k: keep keyboard focus where it is
+    tst open                                # no program: a new shell
 
-    ananta workspace 3                         # switch the view
-    ananta focus left                          # left | right | up | down
-    ananta width 50%                           # resize the focused column
-    ananta send -e "make test"                 # type into a pane (-e presses Enter)
-    ananta close                               # close the focused pane
-    ananta list                                # id, workspace, column, width, program
-    ananta action overview                     # run any action by name,
-    ananta action goto_workspace 2             # exactly as if its key was pressed
+    tst workspace 3                         # switch the view
+    tst focus left                          # left | right | up | down
+    tst width 50%                           # resize the focused column
+    tst send -e "make test"                 # type into a pane (-e presses Enter)
+    tst close                               # close the focused pane
+    tst list                                # id, workspace, column, width, program
+    tst action overview                     # run any action by name,
+    tst action goto_workspace 2             # exactly as if its key was pressed
 
 Widths are a fraction or a percentage: `0.33`, `33%` and `33` all mean the same
 (a column is never narrower than 12 cells). Flags may go before or after the
@@ -79,9 +79,9 @@ program. `open` prints the new pane's id; pass it to `-p ID` on `width`,
 `send` and `close` to target that pane.
 
 **Which session?** `-s NAME` if given; otherwise the session you are inside
-(every pane has `ANANTA_SESSION` and `ANANTA_PANE` set, so a command typed in a
+(every pane has `TST_SESSION` and `TST_PANE` set, so a command typed in a
 pane of session "work" acts on "work", and `close` / `send` / `width` default to
-that very pane); otherwise `main`. Inside `ananta local` there is no session,
+that very pane); otherwise `main`. Inside `tst local` there is no session,
 so name one with `-s`.
 
 `open` starts the program in the directory you ran the command from (`-d DIR`
@@ -103,7 +103,7 @@ In `config.toml`:
     wallpaper = "none"           # off
 
 A wallpaper file is a few lines of TOML (see `wallpaper.toml`, written by
-`ananta init`):
+`tst init`):
 
     command = "htop"             # or a script, or a multi-line shell script
     dir     = ""                 # working directory (default: home)
@@ -124,7 +124,7 @@ the wheel sends them arrow keys instead.
 ## Clipboard from inside panes
 
 Programs in a pane can set your clipboard with OSC 52
-(`printf '\e]52;c;%s\a' "$(printf hi | base64)"`). ananta forwards it to your
+(`printf '\e]52;c;%s\a' "$(printf hi | base64)"`). T-Strip forwards it to your
 terminal and to the native clipboard tool, so copying inside a remote editor
 lands in your local clipboard. Disable with `app_clipboard = false`.
 New panes start in the directory of the pane you opened them from.
@@ -188,7 +188,7 @@ are unavailable they hide, and custom commands still work.
   borders, no neighbours) and is copied on release (OSC 52 plus the native
   clipboard tool when one is installed).
 - Programs that use the mouse themselves keep receiving it; hold shift to force
-  ananta's selection over such a program.
+  T-Strip's selection over such a program.
 - Wheel: scrolls history; switches workspaces in the overview.
 
 ## Copy mode (alt+a)
@@ -200,8 +200,8 @@ swaps ends, `y` or `Enter` copies, `Esc` leaves.
 
 ## Project layout
 
-    cmd/ananta/main.go      flags, commands, config loading
-    cmd/ananta/control.go   `ananta open|workspace|focus|width|send|close|list|action`
+    cmd/tst/main.go      flags, commands, config loading
+    cmd/tst/control.go   `tst open|workspace|focus|width|send|close|list|action`
     internal/app/           "local" mode: runs the mux directly in this terminal
     internal/session/       persistent sessions: server, client, wire protocol
     internal/config/        config structs, loader, embedded default config + wallpaper, action table
@@ -234,7 +234,7 @@ help screen picks it up automatically.
 
 ## Terminal compatibility
 
-ananta's emulator answers the usual identification queries (primary and
+T-Strip's emulator answers the usual identification queries (primary and
 secondary device attributes, terminal version, cursor position) so shells that
 probe the terminal at startup, such as fish 4, get their answer immediately
 instead of timing out.

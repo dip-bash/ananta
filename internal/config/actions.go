@@ -1,10 +1,10 @@
 package config
 
 import (
-	"ananta/internal/width"
 	"sort"
 	"strconv"
 	"strings"
+	"tst/internal/width"
 )
 
 // Action is a bound command, e.g. {Name: "goto_workspace", Arg: "2"}.

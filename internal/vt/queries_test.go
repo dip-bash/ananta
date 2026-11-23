@@ -25,7 +25,7 @@ func TestSecondaryDAAndVersionAreNotConfusedWithPrimary(t *testing.T) {
 	if got, _ := replies("\x1b[>c"); got != "\x1b[>0;0;0c" {
 		t.Errorf("secondary DA answered %q", got)
 	}
-	if got, _ := replies("\x1b[>0q"); got != "\x1bP>|ananta\x1b\\" {
+	if got, _ := replies("\x1b[>0q"); got != "\x1bP>|tst\x1b\\" {
 		t.Errorf("version query answered %q", got)
 	}
 }

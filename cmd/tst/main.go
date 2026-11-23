@@ -1,13 +1,13 @@
-// Command ananta is a scrollable tiling terminal multiplexer with
+// Command tst is a scrollable tiling terminal multiplexer with
 // persistent sessions.
 //
-//	ananta                 attach to session "main" (creating it if needed)
-//	ananta new [name]      create a session and attach
-//	ananta attach [name]   attach to an existing session
-//	ananta ls              list sessions
-//	ananta kill [name]     end a session
-//	ananta local           run in this terminal only (no background session)
-//	ananta open "htop" -n 3 -w 33% -s test   control a running session (see ananta help)
+//	tst                 attach to session "main" (creating it if needed)
+//	tst new [name]      create a session and attach
+//	tst attach [name]   attach to an existing session
+//	tst ls              list sessions
+//	tst kill [name]     end a session
+//	tst local           run in this terminal only (no background session)
+//	tst open "htop" -n 3 -w 33% -s test   control a running session (see tst help)
 package main
 
 import (
@@ -16,16 +16,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"ananta/internal/app"
-	"ananta/internal/config"
-	"ananta/internal/session"
+	"tst/internal/app"
+	"tst/internal/config"
+	"tst/internal/session"
 )
 
 var version = "dev"
 
 const usage = `
 	Usage:
-	  ananta [OPTIONS] [COMMAND] [ARGS]
+	  tst [OPTIONS] [COMMAND] [ARGS]
 
 	Options:
 	  -config FILE    use a custom configuration file
@@ -60,12 +60,12 @@ const usage = `
 	  - If not inside a session, commands default to "main".
 	  - Program arguments must be enclosed in double quotes.
 
-	Run 'ananta help' for more information.
+	Run 'tst help' for more information.
 
 `
 
 func main() {
-	cfgFlag := flag.String("config", "", "path to config file (default ~/.config/ananta/config.toml)")
+	cfgFlag := flag.String("config", "", "path to config file (default ~/.config/tst/config.toml)")
 	sessFlag := flag.String("s", "main", "session name")
 	initFlag := flag.Bool("init", false, "write the default config file and exit")
 	printFlag := flag.Bool("print-config", false, "print the default config and exit")
@@ -110,7 +110,7 @@ func main() {
 	case "init":
 		err = writeDefault(cfgPath)
 	case "print-version":
-		fmt.Printf("Ananata Version: %s",version)
+		fmt.Printf("T-Strip Version: %s", version)
 	case "help":
 		fmt.Print(usage, "\n", controlUsage)
 	case "ls":
@@ -129,7 +129,7 @@ func main() {
 			break
 		}
 		if cmd == "new" && session.Exists(name) {
-			err = fmt.Errorf("session %q already exists (use `ananta attach %s`)", name, name)
+			err = fmt.Errorf("session %q already exists (use `tst attach %s`)", name, name)
 			break
 		}
 		if _, err = config.Load(cfgPath); err != nil { // report config errors here, not in a hidden daemon
@@ -160,7 +160,7 @@ func main() {
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "ananta:", err)
+		fmt.Fprintln(os.Stderr, "tst:", err)
 		os.Exit(1)
 	}
 }

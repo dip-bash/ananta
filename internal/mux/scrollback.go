@@ -1,8 +1,8 @@
 package mux
 
 import (
-	"ananta/internal/pane"
-	"ananta/internal/vt"
+	"tst/internal/pane"
+	"tst/internal/vt"
 )
 
 // Rows of a pane are addressed in "logical" coordinates: 0 is the oldest

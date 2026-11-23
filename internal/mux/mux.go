@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"ananta/internal/config"
-	"ananta/internal/input"
-	"ananta/internal/pane"
-	"ananta/internal/screen"
-	"ananta/internal/stats"
+	"tst/internal/config"
+	"tst/internal/input"
+	"tst/internal/pane"
+	"tst/internal/screen"
+	"tst/internal/stats"
 )
 
 const (
@@ -164,7 +164,7 @@ func (m *Mux) SetSize(w, h int) {
 }
 
 // Start launches the stats sampler and the wallpaper. No pane is opened: the
-// user opens the first one (new_pane) and ananta only exits on quit.
+// user opens the first one (new_pane) and tst only exits on quit.
 func (m *Mux) Start() {
 	custom := map[string]stats.Custom{}
 	for name, w := range m.cfg.Bar.Widgets {

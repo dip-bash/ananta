@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="dip-bash/ananta"
-BINARY_NAME="ananta"
+REPO="dip-bash/tstrip"
+BINARY_NAME="tst"
 
 # Termux sets PREFIX to its private user-space prefix. Do not use sudo there.
 if [ -n "${PREFIX:-}" ] && [[ "$PREFIX" == *"com.termux/files/usr"* ]]; then
@@ -17,23 +17,23 @@ ARCH=$(uname -m)
 if [ "$IS_TERMUX" -eq 1 ]; then
     case "$ARCH" in
         aarch64|arm64)
-            BIN_FILE="ananta-android-aarch64"
+            BIN_FILE="tstrip-android-aarch64"
             ;;
         *)
-            echo "Error: Unsupported Termux architecture ($ARCH). Ananta currently supports Android ARM64 (aarch64) only."
+            echo "Error: Unsupported Termux architecture ($ARCH). T-Strip currently supports Android ARM64 (aarch64) only."
             exit 1
             ;;
     esac
 else
     case "$ARCH" in
         x86_64|amd64)
-            BIN_FILE="ananta-linux-x86_64"
+            BIN_FILE="tstrip-linux-x86_64"
             ;;
         aarch64|arm64)
-            BIN_FILE="ananta-linux-aarch64"
+            BIN_FILE="tstrip-linux-aarch64"
             ;;
         *)
-            echo "Error: Unsupported Linux architecture ($ARCH). Ananta supports x86_64 and aarch64."
+            echo "Error: Unsupported Linux architecture ($ARCH). T-Strip supports x86_64 and aarch64."
             exit 1
             ;;
     esac
@@ -50,7 +50,7 @@ if [ "$IS_TERMUX" -eq 0 ] && [ "$EUID" -ne 0 ]; then
 fi
 
 URL="https://github.com/${REPO}/releases/latest/download/${BIN_FILE}"
-echo "==> Downloading Ananta ($BIN_FILE)..."
+echo "==> Downloading T-Strip ($BIN_FILE)..."
 TMP_FILE=$(mktemp)
 trap 'rm -f "$TMP_FILE"' EXIT
 
@@ -71,5 +71,5 @@ else
     install -m 755 "$TMP_FILE" "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 
-echo "==> Ananta installed successfully!"
-echo "Run 'ananta --init' to generate your initial configuration."
+echo "==> T-Strip installed successfully!"
+echo "Run 'tst --init' to generate your initial configuration."

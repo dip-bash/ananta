@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"ananta/internal/mux"
-	"ananta/internal/session"
+	"tst/internal/mux"
+	"tst/internal/session"
 )
 
 // Commands that act on a running session.
@@ -21,42 +21,42 @@ var controlCommands = map[string]bool{
 const controlUsage = `
 	Control a running session from anywhere (shell, script, or keybinding):
 
-	  ananta open "htop" -n 3 -w 33% -s test    open htop in workspace 3 at 33% width, session "test"
-	  ananta open "tail -f /var/log/syslog" --below
-	  ananta open "make watch" -k               keep keyboard focus on the current pane
-	  ananta open "htop" --focus -n 3           also switch the view to workspace 3
-	  ananta open                               open a new shell
-	  ananta workspace 3                       switch the view to workspace 3
-	  ananta focus left|right|up|down           move focus
-	  ananta width 50%                          set the focused column's width
-	  ananta send -e "make test"                send text to the focused pane (-e presses Enter)
-	  ananta close                              close the focused pane
-	  ananta list                               list panes (ID, workspace, column, width)
-	  ananta action overview                    run an action, as if its key was pressed
-	  ananta action goto_workspace 2            run an action with arguments
+	  tst open "htop" -n 3 -w 33% -s test    open htop in workspace 3 at 33% width, session "test"
+	  tst open "tail -f /var/log/syslog" --below
+	  tst open "make watch" -k               keep keyboard focus on the current pane
+	  tst open "htop" --focus -n 3           also switch the view to workspace 3
+	  tst open                               open a new shell
+	  tst workspace 3                       switch the view to workspace 3
+	  tst focus left|right|up|down           move focus
+	  tst width 50%                          set the focused column's width
+	  tst send -e "make test"                send text to the focused pane (-e presses Enter)
+	  tst close                              close the focused pane
+	  tst list                               list panes (ID, workspace, column, width)
+	  tst action overview                    run an action, as if its key was pressed
+	  tst action goto_workspace 2            run an action with arguments
 
 	  -k / --keep-focus                         don't move keyboard focus to the new pane
 	  --focus                                   switch the view to the target workspace
 
 	The program to run must be enclosed in double quotes as ONE argument.
-	Pane commands accept -p ID to target a pane (see "ananta list").
+	Pane commands accept -p ID to target a pane (see "tst list").
 
 	Which session: -s NAME, else the session you are inside (when run from a
-	pane of Ananta), else "main".
+	pane of T-Strip), else "main".
 `
 
 // resolveSession picks the session a control command talks to.
 // explicit comes from -s; otherwise the session this process runs inside
-// (set by ananta in every pane); otherwise "main".
+// (set by tst in every pane); otherwise "main".
 func resolveSession(explicit string) (name string, fromEnv bool, err error) {
 	if explicit != "" {
 		return explicit, false, nil
 	}
-	if env := os.Getenv("ANANTA_SESSION"); env != "" {
+	if env := os.Getenv("TST_SESSION"); env != "" {
 		return env, true, nil
 	}
-	if os.Getenv("ANANTA") == "1" {
-		return "", false, fmt.Errorf("this terminal runs in `ananta local` mode, which has no session to control; use -s NAME to target one")
+	if os.Getenv("TST") == "1" {
+		return "", false, fmt.Errorf("this terminal runs in `tst local` mode, which has no session to control; use -s NAME to target one")
 	}
 	return "main", false, nil
 }
@@ -84,7 +84,7 @@ func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
 	return append(pos, tail...), nil
 }
 
-// runControl executes `ananta <cmd> ...`. globalSession is the -s given before
+// runControl executes `tst <cmd> ...`. globalSession is the -s given before
 // the command name (empty if none).
 func runControl(cmd string, args []string, globalSession string) error {
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
@@ -129,7 +129,7 @@ func runControl(cmd string, args []string, globalSession string) error {
 	}
 	// inside a pane, commands default to that pane (like the focused one, but exact)
 	if paneID == 0 && fromEnv {
-		if v, err := strconv.Atoi(os.Getenv("ANANTA_PANE")); err == nil && (cmd == "close" || cmd == "send" || cmd == "width") {
+		if v, err := strconv.Atoi(os.Getenv("TST_PANE")); err == nil && (cmd == "close" || cmd == "send" || cmd == "width") {
 			paneID = v
 		}
 	}
@@ -145,7 +145,7 @@ func runControl(cmd string, args []string, globalSession string) error {
 	case "open", "run":
 		req.Op = "open"
 		if len(pos) > 1 {
-			return fmt.Errorf("put the program and its arguments in double quotes, as one argument:\n  ananta open %q", strings.Join(pos, " "))
+			return fmt.Errorf("put the program and its arguments in double quotes, as one argument:\n  tst open %q", strings.Join(pos, " "))
 		}
 		if len(pos) == 1 {
 			req.Command = pos[0]

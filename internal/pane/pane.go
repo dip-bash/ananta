@@ -14,7 +14,7 @@ import (
 
 	"github.com/creack/pty"
 
-	"ananta/internal/vt"
+	"tst/internal/vt"
 )
 
 type Pane struct {
@@ -81,7 +81,7 @@ func New(o Options, dirty chan<- struct{}, exits chan<- *Pane, clip chan<- strin
 			cmd.Dir = o.Dir
 		}
 	}
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "ANANTA=1")
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "TST=1")
 	cmd.Env = append(cmd.Env, o.Env...)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 	if err != nil {

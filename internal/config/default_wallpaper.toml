@@ -1,4 +1,4 @@
-# ananta wallpaper  (~/.config/ananta/wallpaper.toml)
+# T-Strip wallpaper  (~/.config/tst/wallpaper.toml)
 #
 # A wallpaper is a program that runs behind your panes. It is drawn wherever no
 # pane covers the screen (an empty workspace, the space beside a narrow column,
@@ -19,7 +19,7 @@ command = '''
 while :; do
   set -- $(stty size 2>/dev/null)
   r=${1:-24}; c=${2:-80}
-  n='ananta'; t=$(date '+%H:%M'); d=$(date '+%A, %d %B %Y')
+  n='T-Strip'; t=$(date '+%H:%M'); d=$(date '+%A, %d %B %Y')
   printf '\033[2J\033[%d;%dH\033[1m%s\033[0m\033[%d;%dH%s\033[%d;%dH%s' \
     $((r/2-1)) $(( (c-${#n})/2 + 1 )) "$n" \
     $((r/2+1)) $(( (c-${#t})/2 + 1 )) "$t" \

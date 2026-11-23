@@ -3,11 +3,11 @@ package mux
 import (
 	"strings"
 
-	"ananta/internal/vt"
+	"tst/internal/vt"
 
-	"ananta/internal/config"
-	"ananta/internal/input"
-	"ananta/internal/pane"
+	"tst/internal/config"
+	"tst/internal/input"
+	"tst/internal/pane"
 )
 
 func appCursor(p *pane.Pane) bool {

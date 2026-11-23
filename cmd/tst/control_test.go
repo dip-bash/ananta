@@ -14,7 +14,7 @@ func TestResolveSession(t *testing.T) {
 		want                      string
 		fromEnv, wantErr          bool
 	}{
-		{"default outside ananta", "", "", "", "main", false, false},
+		{"default outside tst", "", "", "", "main", false, false},
 		{"explicit wins outside", "test", "", "", "test", false, false},
 		{"inside a session pane", "", "work", "1", "work", true, false},
 		{"explicit beats the current session", "test", "work", "1", "test", false, false},
@@ -22,8 +22,8 @@ func TestResolveSession(t *testing.T) {
 		{"inside local mode but explicit", "test", "", "1", "test", false, false},
 	}
 	for _, c := range cases {
-		t.Setenv("ANANTA_SESSION", c.session)
-		t.Setenv("ANANTA", c.inside)
+		t.Setenv("TST_SESSION", c.session)
+		t.Setenv("TST", c.inside)
 		got, fromEnv, err := resolveSession(c.explicit)
 		if got != c.want || fromEnv != c.fromEnv || (err != nil) != c.wantErr {
 			t.Errorf("%s: got (%q, %v, %v), want (%q, %v, err=%v)", c.name, got, fromEnv, err, c.want, c.fromEnv, c.wantErr)

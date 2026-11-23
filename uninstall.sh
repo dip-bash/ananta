@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY_NAME="ananta"
+BINARY_NAME="tst"
 
 if [ -n "${PREFIX:-}" ] && [[ "$PREFIX" == *"com.termux/files/usr"* ]]; then
     INSTALL_DIR="$PREFIX/bin"
@@ -29,7 +29,7 @@ if [ -f "$TARGET" ]; then
     else
         rm -f "$TARGET"
     fi
-    echo "==> Ananta uninstalled successfully."
+    echo "==> T-Strip uninstalled successfully."
 else
-    echo "Ananta is not found at ${TARGET}."
+    echo "T-Strip is not found at ${TARGET}."
 fi

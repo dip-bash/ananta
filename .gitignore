@@ -1,4 +1,5 @@
-ananta-linux-aarch64
-ananta-linux-x86_64
-ananta-android-aarch64
+tst
+tstrip-linux-aarch64
+tstrip-linux-x86_64
+tstrip-android-aarch64
 *.test

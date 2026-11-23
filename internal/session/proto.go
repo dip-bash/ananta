@@ -1,7 +1,7 @@
 // Package session implements persistent sessions: a background server owns
 // the panes (so they survive the terminal closing, SSH dropping, ...) and a
 // thin client attaches to it over a unix socket, relaying keystrokes in and
-// drawn frames out. Detach with the "detach" action, re-attach with `ananta`.
+// drawn frames out. Detach with the "detach" action, re-attach with `tst`.
 package session
 
 import (
@@ -89,7 +89,7 @@ func Dir() string {
 	if base == "" {
 		base = os.TempDir()
 	}
-	dir := filepath.Join(base, fmt.Sprintf("ananta-%d", os.Getuid()))
+	dir := filepath.Join(base, fmt.Sprintf("tst-%d", os.Getuid()))
 	_ = os.MkdirAll(dir, 0o700)
 	return dir
 }

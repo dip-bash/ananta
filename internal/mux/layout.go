@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"ananta/internal/pane"
+	"tst/internal/pane"
 )
 
 // ---- tile area (everything except the status bar)
@@ -123,12 +123,12 @@ func (m *Mux) spawnWith(cmdline, dir string, frac float64) (*pane.Pane, error) {
 	return p, err
 }
 
-// paneEnv is what lets programs (and the `ananta` command run inside a pane)
+// paneEnv is what lets programs (and the `tst` command run inside a pane)
 // find the session and pane they belong to.
 func (m *Mux) paneEnv(id int) []string {
-	env := []string{fmt.Sprintf("ANANTA_PANE=%d", id)}
+	env := []string{fmt.Sprintf("TST_PANE=%d", id)}
 	if m.session != "" {
-		env = append(env, "ANANTA_SESSION="+m.session)
+		env = append(env, "TST_SESSION="+m.session)
 	}
 	return env
 }

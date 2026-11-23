@@ -5,9 +5,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"ananta/internal/clipboard"
-	"ananta/internal/pane"
-	"ananta/internal/vt"
+	"tst/internal/clipboard"
+	"tst/internal/pane"
+	"tst/internal/vt"
 )
 
 // Selection is a highlighted region of one pane in logical coordinates

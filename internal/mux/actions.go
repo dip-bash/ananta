@@ -4,7 +4,7 @@ import (
 	"math"
 	"strconv"
 
-	"ananta/internal/config"
+	"tst/internal/config"
 )
 
 // run executes one bound action.
@@ -140,7 +140,7 @@ func (m *Mux) run(a config.Action) {
 		if m.OnDetach != nil {
 			m.OnDetach()
 		} else {
-			m.notify("not in a session — start one with `ananta`")
+			m.notify("not in a session — start one with `tst`")
 		}
 	case "toggle_bar":
 		m.barHidden = !m.barHidden

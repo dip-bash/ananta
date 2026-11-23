@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"ananta/internal/pane"
-	"ananta/internal/screen"
+	"tst/internal/pane"
+	"tst/internal/screen"
 )
 
 // The wallpaper is one extra pane, running the command from the wallpaper
@@ -91,9 +91,9 @@ func (m *Mux) drawWallpaper(scr *screen.Screen, x, y, w, h int) {
 }
 
 func (m *Mux) wallpaperEnv() []string {
-	env := []string{"ANANTA_WALLPAPER=1"}
+	env := []string{"TST_WALLPAPER=1"}
 	if m.session != "" {
-		env = append(env, "ANANTA_SESSION="+m.session)
+		env = append(env, "TST_SESSION="+m.session)
 	}
 	return env
 }

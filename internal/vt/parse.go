@@ -1,6 +1,6 @@
 package vt
 
-import "ananta/internal/width"
+import "tst/internal/width"
 
 func isControlCode(c rune) bool {
 	return c < 0x20 || c == 0177

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"ananta/internal/config"
-	"ananta/internal/input"
+	"tst/internal/config"
+	"tst/internal/input"
 )
 
 const clickConfig = `
@@ -26,7 +26,7 @@ on_click_action = "center_mode"
 on_right_click_action = "overview"
 [bar.widgets.run]
 text = " run "
-on_click = 'echo "$ANANTA_SESSION" > OUT'
+on_click = 'echo "$TST_SESSION" > OUT'
 [bar.widgets.boom]
 text = " boom "
 on_click = 'echo it-broke >&2; exit 3'
@@ -98,7 +98,7 @@ func TestClickRunsACommandWithTheSessionInItsEnvironment(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("the click command did not run with ANANTA_SESSION set")
+	t.Fatal("the click command did not run with TST_SESSION set")
 }
 
 func TestFailingClickCommandIsReported(t *testing.T) {

@@ -3,8 +3,8 @@ package mux
 import (
 	"fmt"
 
-	"ananta/internal/screen"
-	"ananta/internal/width"
+	"tst/internal/screen"
+	"tst/internal/width"
 )
 
 // drawHelp paints the scrollable shortcut list, generated from the live config.

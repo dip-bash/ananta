@@ -1,16 +1,16 @@
 package mux
 
 import (
-	"ananta/internal/pane"
 	"fmt"
 	"strconv"
 	"strings"
+	"tst/internal/pane"
 
-	"ananta/internal/config"
+	"tst/internal/config"
 )
 
 // Request is a command sent to a running session from outside (the
-// `ananta open|workspace|focus|width|close|send|list|action` commands). It is
+// `tst open|workspace|focus|width|close|send|list|action` commands). It is
 // executed on the mux goroutine by Control.
 type Request struct {
 	Op        string  `json:"op"` // open workspace focus width close send list action
@@ -125,7 +125,7 @@ func (m *Mux) ctlPane(id int) (*pane.Pane, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("no pane with id %d (see `ananta list`)", id)
+	return nil, fmt.Errorf("no pane with id %d (see `tst list`)", id)
 }
 
 func (m *Mux) ctlOpen(r Request) (string, error) {

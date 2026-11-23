@@ -1,4 +1,4 @@
-// Package app runs ananta in the current terminal with no background session
+// Package app runs tst in the current terminal with no background session
 // ("local" mode: closing the terminal ends everything). The persistent
 // server/client mode lives in package session.
 package app
@@ -12,9 +12,9 @@ import (
 
 	"golang.org/x/term"
 
-	"ananta/internal/config"
-	"ananta/internal/input"
-	"ananta/internal/mux"
+	"tst/internal/config"
+	"tst/internal/input"
+	"tst/internal/mux"
 )
 
 // readInput feeds terminal input to the mux, reassembling escape sequences
@@ -39,7 +39,7 @@ func readInput(keys chan<- []input.Key, onEOF func()) {
 func Run(cfg *config.Config) error {
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
-		return errors.New("ananta must run inside a terminal")
+		return errors.New("tst must run inside a terminal")
 	}
 	size := func() (int, int, error) { return term.GetSize(int(os.Stdout.Fd())) }
 	w, h, err := size()

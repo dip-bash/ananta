@@ -1,4 +1,4 @@
-// Package config loads ~/.config/ananta/config.toml on top of the embedded
+// Package config loads ~/.config/tst/config.toml on top of the embedded
 // defaults and compiles key bindings into lookup tables.
 package config
 
@@ -12,7 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"ananta/internal/input"
+	"tst/internal/input"
 )
 
 //go:embed default.toml
@@ -105,7 +105,7 @@ type Config struct {
 	WallpaperSpec *WallpaperSpec
 }
 
-// Dir returns the config directory: $XDG_CONFIG_HOME/ananta or ~/.config/ananta.
+// Dir returns the config directory: $XDG_CONFIG_HOME/tst or ~/.config/tst.
 func Dir() string {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
@@ -115,7 +115,7 @@ func Dir() string {
 		}
 		base = filepath.Join(home, ".config")
 	}
-	return filepath.Join(base, "ananta")
+	return filepath.Join(base, "tst")
 }
 
 // Path returns the config file to use (flagPath wins when set).
@@ -271,7 +271,7 @@ func decodeInto(cfg *Config, text string) error {
 }
 
 // TermModes returns the escape sequences that put the user's terminal into
-// the state ananta needs (alt screen, mouse, extended keyboard) and undo it.
+// the state tst needs (alt screen, mouse, extended keyboard) and undo it.
 func (c *Config) TermModes() (setup, teardown string) {
 	setup = "\x1b[?1049h\x1b[?25l"
 	teardown = "\x1b[0m\x1b[0 q\x1b[?25h\x1b[?1049l"

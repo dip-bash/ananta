@@ -9,7 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// DefaultWallpaper is the built-in wallpaper file (also written by `ananta init`).
+// DefaultWallpaper is the built-in wallpaper file (also written by `tst init`).
 //
 //go:embed default_wallpaper.toml
 var DefaultWallpaper string

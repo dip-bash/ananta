@@ -118,9 +118,9 @@ func (c *csiEscape) maxarg(i, def int) int {
 // Replies to terminal identification queries. Shells and editors send these at
 // startup and wait for the answer, so they must not be left unanswered.
 const (
-	replyPrimaryDA   = "\x1b[?62;22c"        // VT220-class, ANSI colour
-	replySecondaryDA = "\x1b[>0;0;0c"        // unknown terminal type, no firmware version
-	replyXTVersion   = "\x1bP>|ananta\x1b\\" // terminal name and version query
+	replyPrimaryDA   = "\x1b[?62;22c"     // VT220-class, ANSI colour
+	replySecondaryDA = "\x1b[>0;0;0c"     // unknown terminal type, no firmware version
+	replyXTVersion   = "\x1bP>|tst\x1b\\" // terminal name and version query
 )
 
 func (t *State) handleCSI() {

@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"ananta/internal/config"
+	"tst/internal/config"
 )
 
 // barClick handles a click at column x of the status bar: a workspace tab
@@ -55,17 +55,17 @@ func (t *tailBuffer) Write(p []byte) (int, error) {
 }
 
 // runShell runs a command line in the background. Its environment names the
-// session and focused pane, so `ananta open ...` inside it acts on this
+// session and focused pane, so `tst open ...` inside it acts on this
 // session. A failure is shown in the status bar.
 func (m *Mux) runShell(cmdline string) {
 	cmd := exec.Command("sh", "-c", cmdline)
 	cmd.Env = os.Environ()
 	if m.session != "" {
-		cmd.Env = append(cmd.Env, "ANANTA_SESSION="+m.session)
+		cmd.Env = append(cmd.Env, "TST_SESSION="+m.session)
 	}
 	cmd.Dir = m.startDir
 	if p := m.focusedPane(); p != nil {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("ANANTA_PANE=%d", p.ID))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("TST_PANE=%d", p.ID))
 		if d := p.Cwd(); d != "" {
 			cmd.Dir = d
 		}

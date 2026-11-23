@@ -1,6 +1,6 @@
-BIN := ananta
+BIN := tst
 BUILD_DIR := .
-CMD := ./cmd/ananta
+CMD := ./cmd/tst
 
 .PHONY: build test vet run install clean cross-build android-arm64
 
@@ -9,12 +9,12 @@ build:
 
 # Build Linux binaries for x86-64 and ARM64, plus Android ARM64 for Termux.
 cross-build:
-	GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BIN)-linux-x86_64 ./cmd/ananta
-	GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BIN)-linux-aarch64 ./cmd/ananta
-	CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BIN)-android-aarch64 ./cmd/ananta/
+	GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/tstrip-linux-x86_64 ./cmd/tst
+	GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/tstrip-linux-aarch64 ./cmd/tst
+	CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/tstrip-android-aarch64 ./cmd/tst/
 
 android-arm64:
-	CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o $(BUILD_DIR)/$(BIN)-android-aarch64 $(CMD)
+	CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o $(BUILD_DIR)/tstrip-android-aarch64 $(CMD)
 
 test:
 	go test ./...
@@ -29,4 +29,4 @@ install:
 	go install $(CMD)
 
 clean:
-	rm -f $(BIN) $(BIN)-linux-x86_64 $(BIN)-linux-aarch64 $(BIN)-android-aarch64
+	rm -f $(BIN) tstrip-linux-x86_64 tstrip-linux-aarch64 tstrip-android-aarch64

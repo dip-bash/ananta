@@ -1,6 +1,6 @@
 
-# ---------------------------------------------------------------- ananta behaviour ------------------------------------------------------------
-# ananta configuration  (~/.config/ananta/config.toml)
+# ---------------------------------------------------------------- T-Strip behaviour ------------------------------------------------------------
+# T-Strip configuration  (~/.config/tst/config.toml)
 # Any key you set here is merged over the defaults. To remove a default shortcut, bind it to "none":   "leader+w" = "none"
 
 # The modifier used by every "leader+..." shortcut below.
@@ -71,7 +71,7 @@ mem_style = "percent"         # used (3.1G/7.7G) | percent (41%) | both
 
 # [bar.widgets.monitor]
 # text = " htop "
-# on_click = 'ananta open "htop" -w 40%'   # runs inside this session
+# on_click = 'tst open "htop" -w 40%'   # runs inside this session
 # color = "#ebcb8b"
 
 # [bar.widgets.view]
@@ -107,7 +107,7 @@ selection_fg = "#eceff4"
 #   scroll_up scroll_down     scroll the focused pane through its history
 #   detach                    leave the session running in the background
 #   toggle_bar help quit
-# for more info cheackout (https://github.com/dip-bash/ananta/wiki)
+# for more info cheackout (https://github.com/dip-bash/tstrip/wiki)
 
 [keys]
 "leader+h" = "focus_left"
@@ -172,7 +172,7 @@ selection_fg = "#eceff4"
 "shift+pageup" = "scroll_up"
 "shift+pagedown" = "scroll_down"
 
-# detach from the session; it keeps running (re-attach with `ananta`)
+# detach from the session; it keeps running (re-attach with `tst`)
 "leader+d" = "detach"
 
 [prefix_keys]

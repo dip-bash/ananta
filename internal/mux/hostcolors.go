@@ -1,8 +1,8 @@
 package mux
 
 import (
-	"ananta/internal/input"
-	"ananta/internal/pane"
+	"tst/internal/input"
+	"tst/internal/pane"
 )
 
 // Programs ask "what colour is the background?" to choose between a light and

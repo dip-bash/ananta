@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"ananta/internal/config"
-	"ananta/internal/input"
-	"ananta/internal/mux"
+	"tst/internal/config"
+	"tst/internal/input"
+	"tst/internal/mux"
 )
 
 type client struct {
@@ -282,7 +282,7 @@ func (s *Server) replyCommand(conn net.Conn, payload []byte) {
 	case json.Unmarshal(payload, &req) != nil:
 		resp.Error = "malformed command"
 	case !s.started.Load():
-		resp.Error = "session is not ready: attach to it once first (run `ananta`)"
+		resp.Error = "session is not ready: attach to it once first (run `tst`)"
 	default:
 		ch := make(chan Response, 1)
 		work := func() {

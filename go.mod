@@ -1,4 +1,4 @@
-module ananta
+module tst
 
 go 1.22
 

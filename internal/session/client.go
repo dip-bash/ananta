@@ -1,7 +1,6 @@
 package session
 
 import (
-	"ananta/internal/mux"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"tst/internal/mux"
 
 	"golang.org/x/term"
 )
@@ -54,7 +54,7 @@ func EnsureServer(name, cfgPath string) error {
 		cmd.Stdout, cmd.Stderr = logf, logf
 		defer logf.Close()
 	}
-	cmd.Dir = "/"                                        // don't pin the directory ananta was launched from (it may be unmounted or deleted)
+	cmd.Dir = "/"                                        // don't pin the directory tst was launched from (it may be unmounted or deleted)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // survive the terminal going away
 	if err := cmd.Start(); err != nil {
 		return err
@@ -73,12 +73,12 @@ func EnsureServer(name, cfgPath string) error {
 func Attach(name string) error {
 	conn, err := dial(name)
 	if err != nil {
-		return fmt.Errorf("no session %q (start one with `ananta new %s`)", name, name)
+		return fmt.Errorf("no session %q (start one with `tst new %s`)", name, name)
 	}
 	defer conn.Close()
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
-		return errors.New("ananta must run inside a terminal")
+		return errors.New("tst must run inside a terminal")
 	}
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -207,7 +207,7 @@ func List() ([]Info, error) {
 func Control(name string, req mux.Request) (string, error) {
 	conn, err := dial(name)
 	if err != nil {
-		return "", fmt.Errorf("no running session %q (start one with `ananta new %s`)", name, name)
+		return "", fmt.Errorf("no running session %q (start one with `tst new %s`)", name, name)
 	}
 	defer conn.Close()
 	payload, _ := json.Marshal(req)

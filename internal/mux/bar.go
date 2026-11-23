@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	"ananta/internal/config"
-	"ananta/internal/screen"
-	"ananta/internal/stats"
-	"ananta/internal/width"
+	"tst/internal/config"
+	"tst/internal/screen"
+	"tst/internal/stats"
+	"tst/internal/width"
 )
 
 // seg is one styled run of text in the bar. tab >= 0 marks a clickable

@@ -3,8 +3,8 @@ package mux
 import (
 	"unicode"
 
-	"ananta/internal/input"
-	"ananta/internal/pane"
+	"tst/internal/input"
+	"tst/internal/pane"
 )
 
 // CopyMode is a keyboard-driven cursor + visual selection over a pane's history

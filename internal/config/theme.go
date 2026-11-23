@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ananta/internal/screen"
+	"tst/internal/screen"
 )
 
 // ParseColor accepts "#rrggbb", a 0-255 palette index, or "default".

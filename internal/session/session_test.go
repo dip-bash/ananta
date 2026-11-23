@@ -15,9 +15,9 @@ import (
 
 	"github.com/creack/pty"
 
-	"ananta/internal/config"
-	"ananta/internal/mux"
-	"ananta/internal/vt"
+	"tst/internal/config"
+	"tst/internal/mux"
+	"tst/internal/vt"
 )
 
 // screenText replays everything the server has drawn into a terminal emulator

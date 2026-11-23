@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math"
 
-	"ananta/internal/vt"
+	"tst/internal/vt"
 
-	"ananta/internal/pane"
-	"ananta/internal/screen"
-	"ananta/internal/width"
+	"tst/internal/pane"
+	"tst/internal/screen"
+	"tst/internal/width"
 )
 
 func mapColor(c vt.Color) screen.Col {

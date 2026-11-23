@@ -3,11 +3,11 @@ package mux
 import (
 	"fmt"
 
-	"ananta/internal/vt"
+	"tst/internal/vt"
 
-	"ananta/internal/config"
-	"ananta/internal/input"
-	"ananta/internal/pane"
+	"tst/internal/config"
+	"tst/internal/input"
+	"tst/internal/pane"
 )
 
 func (m *Mux) hitAt(x, y int) *hit {

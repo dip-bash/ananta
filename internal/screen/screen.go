@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"strconv"
 
-	"ananta/internal/width"
+	"tst/internal/width"
 )
 
 // Col is a terminal color: -1 = default, 0..255 = palette, TrueBit|rgb = truecolor.
@@ -147,7 +147,7 @@ func (r *Renderer) color(base int, c Col) {
 	if c >= 0 && c < 16 && c&TrueBit == 0 {
 		// the 16 basic colours use their classic codes (30-37, 90-97, 40-47,
 		// 100-107): every terminal understands them, and they keep behaving
-		// exactly as they do outside ananta (theme palette, bold-as-bright)
+		// exactly as they do outside tst (theme palette, bold-as-bright)
 		code := base - 8 + int(c) // 38 -> 30.., 48 -> 40..
 		if c >= 8 {
 			code += 60 - 8 // bright: 90.., 100..
