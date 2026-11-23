@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ananta. The Endless Terminal Multiplexer</title>
+  <title>T-Strip. The Endless Terminal Multiplexer</title>
   <meta name="description" content="A scrollable tiling terminal multiplexer built in Go. Panes live in columns on an endless horizontal strip." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⯹</text></svg>" />
   
@@ -85,6 +85,14 @@
     }
     nav a:hover { color: var(--text); }
     .gh-link { display: flex; align-items: center; gap: 0.5rem; }
+    .star-count {
+      display: inline-flex;
+      align-items: center;
+      color: var(--accent-cyan);
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+    .star-count:empty { display: none; }
 
     /* Hero Section */
     .hero-grid {
@@ -451,14 +459,15 @@
 <body>
   <header>
     <div class="container header-inner">
-      <a href="#" class="label-mono">ananta</a>
+      <a href="#" class="label-mono">T-Strip</a>
       <nav aria-label="Main navigation">
         <a href="#demo">Demo</a>
         <a href="#keys">Keys</a>
         <a href="#wiki">Wiki</a>
-        <a href="https://github.com/dip-bash/ananta" target="_blank" rel="noreferrer" class="gh-link">
+        <a href="https://github.com/dip-bash/tstrip" target="_blank" rel="noreferrer" class="gh-link">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           <span>Star on GitHub</span>
+          <span class="star-count" id="star-count" title="GitHub stars"></span>
         </a>
       </nav>
     </div>
@@ -468,7 +477,7 @@
     <section class="container hero-grid">
       <div class="hero-left">
         <p class="label-mono" style="margin-bottom: 1.25rem;">Scrollable tiling terminal</p>
-        <h1 class="hero-title">ananta</h1>
+        <h1 class="hero-title">T-Strip</h1>
         <h2 class="hero-subtitle">The endless terminal multiplexer</h2>
         <p class="hero-desc">
           A scrollable tiling multiplexer built in Go. Panes live in columns on an endless horizontal strip, gliding smoothly into focus.
@@ -481,10 +490,10 @@
             <button class="tab-btn" id="tab-uninstall">Uninstall</button>
           </div>
           <div class="code-box">
-            <code id="cmd-display">curl -sSL https://raw.githubusercontent.com/dip-bash/ananta/main/install.sh | bash</code>
+            <code id="cmd-display">curl -sSL https://raw.githubusercontent.com/dip-bash/tstrip/main/install.sh | bash</code>
             <button class="copy-btn" id="copy-btn">copy</button>
           </div>
-          <p class="install-sub">macOS · Linux · <a href="https://github.com/dip-bash/ananta" target="_blank" rel="noreferrer">all install methods ↗</a></p>
+          <p class="install-sub">macOS · Linux · <a href="https://github.com/dip-bash/tstrip" target="_blank" rel="noreferrer">all install methods ↗</a></p>
         </div>
       </div>
 
@@ -495,7 +504,7 @@
             <span class="window-dot"></span>
             <span class="window-dot"></span>
             <span class="window-dot"></span>
-            <span class="window-title" id="ws-indicator">ananta · workspace 1</span>
+            <span class="window-title" id="ws-indicator">T-Strip · workspace 1</span>
           </div>
 
           <div class="viewport">
@@ -591,17 +600,17 @@
 
   <footer>
     <div class="container" style="display: flex; justify-content: space-between; width: 100%;">
-      <a href="https://github.com/dip-bash/ananta" target="_blank" rel="noreferrer" style="display: flex; align-items: center; gap: 0.5rem;">
+      <a href="https://github.com/dip-bash/tstrip" target="_blank" rel="noreferrer" style="display: flex; align-items: center; gap: 0.5rem;">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        github.com/dip-bash/ananta
+        github.com/dip-bash/tstrip
       </a>
     </div>
   </footer>
 
   <script>
     // Commands & Copy
-    const INSTALL_CMD = "curl -sSL https://raw.githubusercontent.com/dip-bash/ananta/main/install.sh | bash";
-    const UNINSTALL_CMD = "curl -sSL https://raw.githubusercontent.com/dip-bash/ananta/main/uninstall.sh | bash";
+    const INSTALL_CMD = "curl -sSL https://raw.githubusercontent.com/dip-bash/tstrip/main/install.sh | bash";
+    const UNINSTALL_CMD = "curl -sSL https://raw.githubusercontent.com/dip-bash/tstrip/main/uninstall.sh | bash";
     const cmdDisplay = document.getElementById("cmd-display");
     const copyBtn = document.getElementById("copy-btn");
     const tabInstall = document.getElementById("tab-install");
@@ -623,6 +632,56 @@
       copyBtn.textContent = "copied!";
       setTimeout(() => { copyBtn.textContent = "copy"; }, 1500);
     });
+
+    // GitHub stars
+    const STAR_REPO = "dip-bash/tstrip";
+    const STAR_CACHE_KEY = `github-stars:${STAR_REPO}`;
+    const STAR_CACHE_MS = 60 * 60 * 1000; // 1 hour
+    const starCount = document.getElementById("star-count");
+
+    const formatStars = (n) =>
+      n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n);
+
+    const showStars = (n) => {
+      starCount.textContent = `★ ${formatStars(n)}`;
+      starCount.title = `${n} GitHub star${n === 1 ? "" : "s"}`;
+    };
+
+    const readStarCache = () => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(STAR_CACHE_KEY));
+        return cached && Date.now() - cached.at < STAR_CACHE_MS ? cached : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const writeStarCache = (n) => {
+      try {
+        localStorage.setItem(STAR_CACHE_KEY, JSON.stringify({ n, at: Date.now() }));
+      } catch {
+        // Storage may be unavailable; the count still renders for this visit.
+      }
+    };
+
+    (async () => {
+      const cached = readStarCache();
+      if (cached) {
+        showStars(cached.n);
+        return;
+      }
+      try {
+        const res = await fetch(`https://api.github.com/repos/${STAR_REPO}`, {
+          headers: { Accept: "application/vnd.github+json" },
+        });
+        if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+        const { stargazers_count: n } = await res.json();
+        showStars(n);
+        writeStarCache(n);
+      } catch {
+        starCount.remove(); // no count until the repo is reachable/public
+      }
+    })();
 
     // Keybindings Data
     const KEY_GROUPS = [
@@ -678,7 +737,7 @@
     renderKeys();
 
     // Wiki Links
-    const WIKI_BASE = "https://github.com/dip-bash/ananta/wiki";
+    const WIKI_BASE = "https://github.com/dip-bash/tstrip/wiki";
     const WIKI_PAGES = [
       "Getting Started", "Configuration", "Key Bindings", "Workspaces and Layout",
       "Copy Mode", "Copy and Paste", "Scrollback", "Sessions",
@@ -719,7 +778,7 @@
       const offset = Math.max(0, curFocus * colWidthPercent - (100 - colWidthPercent) / 2);
 
       trackEl.style.transform = `translateX(-${offset}%)`;
-      wsIndicator.textContent = `ananta · workspace ${ws + 1}`;
+      wsIndicator.textContent = `T-Strip · workspace ${ws + 1}`;
       colIndicator.textContent = `col ${curFocus + 1}/${cols.length}`;
 
       wsBtns.forEach((btn, i) => {
@@ -733,7 +792,7 @@
             const cmd = CMDS[(col.id + p) % CMDS.length];
             return `
               <div class="pane ${active ? 'active' : ''}">
-                <div><span class="prompt-path">~/ananta</span> <span class="prompt-arrow">❯</span> ${cmd}</div>
+                <div><span class="prompt-path">~/tstrip</span> <span class="prompt-arrow">❯</span> ${cmd}</div>
                 <div class="pane-preview">
                   <div class="preview-bar" style="width: 75%;"></div>
                   <div class="preview-bar" style="width: 50%;"></div>
