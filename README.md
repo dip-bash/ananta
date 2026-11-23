@@ -1,6 +1,7 @@
 # T-Strip
 
-<img width="100%" alt="T-Strip" src="https://github.com/user-attachments/assets/21e5e7a5-144b-4adb-a719-8b5648783bf1" />
+<img width="100%" src="https://github.com/user-attachments/assets/b676132e-45aa-4cc7-a4cf-4b8f5a22331a" />
+
 
 A scrollable tiling terminal multiplexer written in Go. Panes live in columns
 on an endless horizontal strip; focusing a column glides the view to it.
