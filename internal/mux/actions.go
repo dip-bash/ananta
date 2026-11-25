@@ -52,8 +52,18 @@ func (m *Mux) run(a config.Action) {
 		m.newPane(a.Arg)
 	case "new_pane_below":
 		m.newPaneBelow(a.Arg)
+	case "mark":
+		m.markFocused()
+	case "unmark":
+		m.unmarkFocused()
+	case "vault":
+		m.openVault()
 	case "close_pane":
 		if p := m.focusedPane(); p != nil {
+			if p.Marked {
+				m.notify("pane is marked")
+				return
+			}
 			m.removePane(p)
 		}
 	case "stack_left":
@@ -148,6 +158,10 @@ func (m *Mux) run(a config.Action) {
 		m.showHelp = !m.showHelp
 		m.helpScroll = 0
 	case "quit":
+		if m.markedCount() > 0 {
+			m.notify("pane is marked")
+			return
+		}
 		m.quit = true
 	}
 }

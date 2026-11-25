@@ -36,7 +36,9 @@ scrollback_lines = 10000   # history kept per pane (0 = off); wheel / shift+page
 wallpaper = "default"
 
 # Optional prefix key. When set, keys in [prefix_keys] work after it.
-prefix = ""                # e.g. "ctrl+b"
+# The vault lives behind alt+q for now: alt+q m (mark), alt+q u (unmark),
+# alt+q v (open the vault).
+prefix = "alt+q"
 
 # ---------------------------------------------------------------- status bar ------------------------------------------------------------------
 [bar]
@@ -81,8 +83,9 @@ mem_style = "percent"         # used (3.1G/7.7G) | percent (41%) | both
 
 # ---------------------------------------------------------------- theme -------------------------------------------------------------------
 [theme]                    # "#rrggbb", 0-255 (palette) or "default"
-border       = "#4c566a"
-focus_border = "#88c0d0"
+border        = "#4c566a"
+focus_border  = "#88c0d0"
+marked_border = "#ebcb8b"   # panes saved in the vault
 title        = "#81a1c1"
 focus_title  = "#eceff4"
 status_bg    = "#2e3440"
@@ -97,6 +100,7 @@ selection_fg = "#eceff4"
 #   move_left move_right move_up move_down
 #   new_pane [command]        new column to the right of the focused one
 #   new_pane_below [command]  stack a new pane under the focused one
+#   mark unmark vault         save / remove the focused pane, open the vault
 #   close_pane stack_left unstack
 #   grow shrink cycle_width maximize
 #   center_mode               toggle always-centered <-> scroll-only-as-needed
@@ -176,4 +180,7 @@ selection_fg = "#eceff4"
 "leader+d" = "detach"
 
 [prefix_keys]
+"m" = "mark"
+"u" = "unmark"
+"v" = "vault"
 

@@ -49,8 +49,16 @@ type Workspace struct {
 }
 
 type theme struct {
-	border, focusBorder, title, focusTitle   screen.Col
+	border, focusBorder, markedBorder        screen.Col
+	title, focusTitle                        screen.Col
 	statusBG, statusFG, accent, selBG, selFG screen.Col
+}
+
+// SwitchTarget asks the client attached to this session to move to another
+// session (and optionally focus a pane there). It is set by the session server.
+type SwitchTarget struct {
+	Session string
+	Pane    int
 }
 
 // hit records where a pane was drawn last frame, for mouse hit-testing.
@@ -105,6 +113,8 @@ type Mux struct {
 	clipCh      chan string // OSC 52 requests from programs running in panes
 	startDir    string      // where panes start when there is no focused pane to copy from
 	session     string      // name shown by the "session" bar widget ("" in local mode)
+	vaultCmd    string      // command that opens the vault UI in a pane
+	markSeq     int         // FIFO counter for marked panes in this session
 	curStyle    int         // cursor style of the focused program (see vt.Terminal.CursorStyle)
 	hostFG      [3]uint8    // the user's terminal colours, learned by asking it
 	hostBG      [3]uint8
@@ -116,6 +126,10 @@ type Mux struct {
 
 	// OnDetach is set by the session server; the detach action calls it.
 	OnDetach func()
+
+	// OnSwitch is set by the session server; it moves the attached client to
+	// another session (used by the vault).
+	OnSwitch func(SwitchTarget) error
 }
 
 func New(cfg *config.Config, out *bufio.Writer) *Mux {
@@ -135,7 +149,8 @@ func New(cfg *config.Config, out *bufio.Writer) *Mux {
 		attached:    true,
 		th: theme{
 			border: config.ParseColor(cfg.Theme.Border), focusBorder: config.ParseColor(cfg.Theme.FocusBorder),
-			title: config.ParseColor(cfg.Theme.Title), focusTitle: config.ParseColor(cfg.Theme.FocusTitle),
+			markedBorder: config.ParseColor(cfg.Theme.MarkedBorder),
+			title:        config.ParseColor(cfg.Theme.Title), focusTitle: config.ParseColor(cfg.Theme.FocusTitle),
 			statusBG: config.ParseColor(cfg.Theme.StatusBG), statusFG: config.ParseColor(cfg.Theme.StatusFG),
 			accent: config.ParseColor(cfg.Theme.Accent),
 			selBG:  config.ParseColor(cfg.Theme.SelectionBG), selFG: config.ParseColor(cfg.Theme.SelectionFG),
@@ -248,6 +263,9 @@ func (m *Mux) SetAttached(on bool) {
 
 // SetSessionName sets the name shown by the "session" bar widget.
 func (m *Mux) SetSessionName(name string) { m.session = name }
+
+// SetVaultCommand sets the shell command that opens the vault UI in a pane.
+func (m *Mux) SetVaultCommand(cmd string) { m.vaultCmd = cmd }
 
 // SetStartDir sets the directory new panes start in when there is no focused
 // pane whose directory can be inherited.

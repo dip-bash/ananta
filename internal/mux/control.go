@@ -13,7 +13,7 @@ import (
 // `tst open|workspace|focus|width|close|send|list|action` commands). It is
 // executed on the mux goroutine by Control.
 type Request struct {
-	Op        string  `json:"op"` // open workspace focus width close send list action
+	Op        string  `json:"op"` // open workspace focus width close send list action, vault_*
 	Command   string  `json:"command,omitempty"`
 	Dir       string  `json:"dir,omitempty"`
 	Workspace int     `json:"workspace,omitempty"`  // 1..9; 0 = current
@@ -22,11 +22,14 @@ type Request struct {
 	Focus     bool    `json:"focus,omitempty"`      // open: also switch to that workspace
 	KeepFocus bool    `json:"keep_focus,omitempty"` // open: leave keyboard focus where it was
 	Pane      int     `json:"pane,omitempty"`       // pane id; 0 = the focused pane
-	Text      string  `json:"text,omitempty"`       // send
+	Text      string  `json:"text,omitempty"`       // send / vault_rename
 	Enter     bool    `json:"enter,omitempty"`      // send: press Enter afterwards
 	Direction string  `json:"direction,omitempty"`  // focus: left right up down
 	Action    string  `json:"action,omitempty"`     // action: any bound action name
 	Arg       string  `json:"arg,omitempty"`
+
+	TargetSession string `json:"target_session,omitempty"` // vault_jump
+	TargetPane    int    `json:"target_pane,omitempty"`    // vault_jump: 0 = just the session
 }
 
 // ParseWidth reads a column width: "0.33" or "33%" or "33" (a bare number
@@ -49,10 +52,23 @@ func ParseWidth(s string) (float64, error) {
 
 // Control runs one request and returns its output (printed by the CLI).
 func (m *Mux) Control(r Request) (string, error) {
+	// The vault reads state even from a detached session, which has no size.
+	switch r.Op {
+	case "vault_list":
+		return m.ctlVaultList()
+	}
 	if m.W < 1 {
 		return "", fmt.Errorf("session has no screen size yet: attach to it once")
 	}
 	switch r.Op {
+	case "vault_rename":
+		return "", m.ctlVaultRename(r.Pane, r.Text)
+	case "vault_remove":
+		return "", m.ctlVaultRemove(r.Pane)
+	case "vault_delete":
+		return "", m.ctlVaultDelete(r.Pane)
+	case "vault_jump":
+		return "", m.ctlVaultJump(r.TargetSession, r.TargetPane)
 	case "open":
 		return m.ctlOpen(r)
 	case "workspace":
@@ -69,6 +85,9 @@ func (m *Mux) Control(r Request) (string, error) {
 		p, err := m.ctlPane(r.Pane)
 		if err != nil {
 			return "", err
+		}
+		if p.Marked {
+			return "", fmt.Errorf("pane is marked")
 		}
 		m.removePane(p)
 		return "", nil
@@ -129,6 +148,9 @@ func (m *Mux) ctlPane(id int) (*pane.Pane, error) {
 }
 
 func (m *Mux) ctlOpen(r Request) (string, error) {
+	if strings.TrimSpace(r.Command) == "vault" {
+		r.Command = m.VaultCommand()
+	}
 	wi, err := m.ctlWorkspace(r.Workspace)
 	if err != nil {
 		return "", err

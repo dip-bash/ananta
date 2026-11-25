@@ -19,15 +19,16 @@ import (
 var Default string
 
 type Theme struct {
-	Border      string `toml:"border"`
-	FocusBorder string `toml:"focus_border"`
-	Title       string `toml:"title"`
-	FocusTitle  string `toml:"focus_title"`
-	StatusBG    string `toml:"status_bg"`
-	StatusFG    string `toml:"status_fg"`
-	Accent      string `toml:"accent"`
-	SelectionBG string `toml:"selection_bg"`
-	SelectionFG string `toml:"selection_fg"`
+	Border       string `toml:"border"`
+	FocusBorder  string `toml:"focus_border"`
+	MarkedBorder string `toml:"marked_border"`
+	Title        string `toml:"title"`
+	FocusTitle   string `toml:"focus_title"`
+	StatusBG     string `toml:"status_bg"`
+	StatusFG     string `toml:"status_fg"`
+	Accent       string `toml:"accent"`
+	SelectionBG  string `toml:"selection_bg"`
+	SelectionFG  string `toml:"selection_fg"`
 }
 
 // CustomWidget is a user-defined status-bar widget backed by a shell command.

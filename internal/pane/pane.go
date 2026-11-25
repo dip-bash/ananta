@@ -3,7 +3,6 @@
 package pane
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +24,14 @@ type Pane struct {
 	Term       vt.Terminal
 	Cols, Rows int
 	Dead       bool
+
+	// Vault state, owned by the mux.
+	Marked  bool
+	Label   string // custom name shown in the vault ("" = the foreground name)
+	MarkSeq int    // FIFO order inside the session
+
+	fgName string // cached foreground process name
+	fgAt   time.Time
 
 	// Viewport into scrollback, managed by the mux. When Anchored, the pane
 	// shows history starting at logical row Top instead of following the
@@ -146,17 +153,12 @@ func (p *Pane) Close() {
 	}
 }
 
-// Cwd returns the child's current working directory (Linux: via /proc), or ""
-// when unknown.
+// Cwd returns the child's current working directory, or "" when unknown.
 func (p *Pane) Cwd() string {
 	if p.Cmd == nil || p.Cmd.Process == nil {
 		return ""
 	}
-	d, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", p.Cmd.Process.Pid))
-	if err != nil {
-		return ""
-	}
-	return d
+	return cwdOf(p.Cmd.Process.Pid)
 }
 
 // writeBounded writes b to the child but gives up after limit, so a child

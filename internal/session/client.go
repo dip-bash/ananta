@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -70,7 +71,10 @@ func EnsureServer(name, cfgPath string) error {
 }
 
 // Attach connects this terminal to the session and relays until detached.
-func Attach(name string) error {
+func Attach(name string) error { return AttachPane(name, 0) }
+
+// AttachPane is Attach, then focuses a specific pane (the vault's jump).
+func AttachPane(name string, pane int) error {
 	conn, err := dial(name)
 	if err != nil {
 		return fmt.Errorf("no session %q (start one with `tst new %s`)", name, name)
@@ -85,7 +89,7 @@ func Attach(name string) error {
 		return err
 	}
 	cwd, _ := os.Getwd()
-	hello, _ := json.Marshal(Size{Cols: w, Rows: h, Cwd: cwd})
+	hello, _ := json.Marshal(Size{Cols: w, Rows: h, Cwd: cwd, Pane: pane})
 	if err := writeFrame(conn, MsgHello, hello); err != nil {
 		return err
 	}
@@ -131,6 +135,7 @@ func Attach(name string) error {
 	}()
 
 	msg := "connection lost"
+	var next *Switch
 loop:
 	for {
 		typ, payload, err := readFrame(conn)
@@ -146,13 +151,44 @@ loop:
 		case MsgEnded:
 			msg = "session ended"
 			break loop
+		case MsgSwitch:
+			var sw Switch
+			if json.Unmarshal(payload, &sw) == nil && sw.Session != "" {
+				next = &sw
+			}
+			break loop
 		}
 	}
 	signal.Stop(winch)
 	os.Stdout.WriteString(teardown)
 	_ = term.Restore(fd, old)
+	if next != nil {
+		// Replace the process: its stdin reader would otherwise keep reading
+		// the terminal and steal keys from the new session.
+		_ = conn.Close()
+		return AttachExec(next.Session, next.Pane, next.Config)
+	}
 	fmt.Fprintf(os.Stderr, "[%s: %s]\n", name, msg)
 	return nil
+}
+
+// AttachExec replaces the current process with a fresh attach client. It is
+// used after a session switch so no goroutine from the old connection survives
+// to read the terminal.
+func AttachExec(name string, pane int, cfgPath string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return AttachPane(name, pane)
+	}
+	args := []string{exe}
+	if cfgPath != "" {
+		args = append(args, "-config", cfgPath)
+	}
+	args = append(args, "attach", name)
+	if pane != 0 {
+		args = append(args, strconv.Itoa(pane))
+	}
+	return syscall.Exec(exe, args, os.Environ())
 }
 
 // Kill ends a session (and every program running in it).

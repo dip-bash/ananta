@@ -27,6 +27,7 @@ const (
 	MsgOutput      = 'O' // bytes to write to the terminal
 	MsgDetached    = 'X' // payload: reason; client should exit
 	MsgEnded       = 'Q' // session ended (all panes closed / killed)
+	MsgSwitch      = 'W' // JSON Switch; client should attach elsewhere
 	MsgInfoResp    = 'p' // JSON Info
 	MsgCommandResp = 'c' // JSON Response
 )
@@ -38,6 +39,14 @@ const maxFrame = 16 << 20
 type Size struct {
 	Cols, Rows int
 	Cwd        string `json:",omitempty"`
+	Pane       int    `json:",omitempty"` // focus this pane after attaching
+}
+
+// Switch asks an attached client to detach and attach to another session.
+type Switch struct {
+	Session string
+	Pane    int    `json:",omitempty"`
+	Config  string `json:",omitempty"` // config file the target server was started with
 }
 
 // Response is the answer to a MsgCommand.
@@ -51,6 +60,7 @@ type Info struct {
 	Panes    int
 	Attached bool
 	PID      int
+	Started  int64 // unix nanoseconds; sessions are listed in creation order
 }
 
 func writeFrame(w io.Writer, typ byte, payload []byte) error {

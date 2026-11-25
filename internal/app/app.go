@@ -36,7 +36,11 @@ func readInput(keys chan<- []input.Key, onEOF func()) {
 }
 
 // Run starts the multiplexer in this terminal and blocks until it exits.
-func Run(cfg *config.Config) error {
+func Run(cfg *config.Config) error { return RunWith(cfg, "") }
+
+// RunWith is Run with the config file in use, so the vault opened from a pane
+// reads the same configuration.
+func RunWith(cfg *config.Config, cfgPath string) error {
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
 		return errors.New("tst must run inside a terminal")
@@ -57,6 +61,7 @@ func Run(cfg *config.Config) error {
 	out.Flush()
 
 	m := mux.New(cfg, out)
+	m.SetVaultCommand(mux.VaultCommandLine(cfgPath))
 	cleanup := func() {
 		m.Shutdown()
 		out.WriteString(teardown)

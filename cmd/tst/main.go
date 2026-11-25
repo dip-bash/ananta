@@ -15,10 +15,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"tst/internal/app"
 	"tst/internal/config"
 	"tst/internal/session"
+	"tst/internal/vault"
 )
 
 var version = "dev"
@@ -38,6 +40,7 @@ const usage = `
 	  ls              list available sessions
 	  kill [NAME]     terminate a session
 	  local           run locally without session persistence
+	  vault           open the vault in this terminal
 
 	Configuration:
 	  init            generate default configuration files
@@ -46,14 +49,14 @@ const usage = `
 
 	Session controls:
 	  open "CMD" [-n WORKSPACE] [-w WIDTH] [-s SESSION]
-					  open a program in a new pane
+					  open a program in a new pane ("vault" = the vault UI)
 	  workspace N     switch workspace
 	  focus DIR       focus a pane in a direction
 	  width W         set pane width
 	  send "TEXT"     send text to a pane
 	  close           close the current pane
 	  list            list panes
-	  action NAME     execute an action
+	  action NAME     execute an action (mark, unmark, vault, ...)
 
 	Notes:
 	  - Commands control the current session by default.
@@ -100,6 +103,11 @@ func main() {
 		cmd = "print-version"
 	}
 	cfgPath := config.Path(*cfgFlag)
+	if cfgPath != "" {
+		if abs, err := filepath.Abs(cfgPath); err == nil {
+			cfgPath = abs
+		}
+	}
 
 	var err error
 	switch cmd {
@@ -122,7 +130,13 @@ func main() {
 		}
 	case "attach":
 		if err = checkName(name); err == nil {
-			err = session.Attach(name)
+			pane := 0
+			if len(rest) > 1 {
+				if n, e := strconv.Atoi(rest[1]); e == nil {
+					pane = n
+				}
+			}
+			err = session.AttachPane(name, pane)
 		}
 	case "default", "new":
 		if err = checkName(name); err != nil {
@@ -135,19 +149,31 @@ func main() {
 		if _, err = config.Load(cfgPath); err != nil { // report config errors here, not in a hidden daemon
 			break
 		}
-		if err = session.EnsureServer(name, *cfgFlag); err == nil {
+		if err = session.EnsureServer(name, cfgPath); err == nil {
 			err = session.Attach(name)
 		}
 	case "local":
 		var cfg *config.Config
 		if cfg, err = config.Load(cfgPath); err == nil {
-			err = app.Run(cfg)
+			err = app.RunWith(cfg, cfgPath)
+		}
+	case "vault":
+		var cfg *config.Config
+		if cfg, err = config.Load(cfgPath); err == nil {
+			// outside tst: boot the default session and show the empty vault
+			bootErr := ""
+			if os.Getenv("TST_SESSION") == "" && os.Getenv("TST") != "1" {
+				if e := session.EnsureServer("main", cfgPath); e != nil {
+					bootErr = e.Error()
+				}
+			}
+			err = vault.Run(cfg, vault.Options{BootErr: bootErr, ConfigPath: cfgPath})
 		}
 	case "server": // internal: started by EnsureServer
 		var cfg *config.Config
 		if err = checkName(name); err == nil {
 			if cfg, err = config.Load(cfgPath); err == nil {
-				err = session.Serve(cfg, name)
+				err = session.ServeWith(cfg, name, cfgPath)
 			}
 		}
 	default:

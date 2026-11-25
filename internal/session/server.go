@@ -33,6 +33,8 @@ func (c *client) send(typ byte, payload []byte) error {
 // Server owns one mux and serves at most one attached client at a time.
 type Server struct {
 	name            string
+	startedAt       int64
+	cfgPath         string
 	m               *mux.Mux
 	ln              net.Listener
 	keys            chan []input.Key
@@ -107,6 +109,17 @@ func (s *Server) detachCurrent() {
 	}
 }
 
+// switchClient tells the attached client to move to another session.
+func (s *Server) switchClient(t mux.SwitchTarget) error {
+	c := s.current()
+	if c == nil {
+		return fmt.Errorf("no client is attached to this session")
+	}
+	b, _ := json.Marshal(Switch{Session: t.Session, Pane: t.Pane, Config: s.cfgPath})
+	go func() { _ = c.send(MsgSwitch, b) }()
+	return nil
+}
+
 func (s *Server) requestStop() {
 	s.stopOnce.Do(func() { close(s.stop) })
 	// a blocking send (from a goroutine): if the queue is momentarily full the
@@ -142,17 +155,24 @@ func (s *Server) handle(conn net.Conn) {
 
 func (s *Server) replyInfo(conn net.Conn) {
 	defer conn.Close()
-	ch := make(chan int, 1)
-	select {
-	case s.post <- func() { ch <- s.m.PaneCount() }:
-	default:
+	// Before the first client attaches the mux loop is not running yet, so
+	// there is nobody to answer and the session cannot have panes. Report that
+	// straight away: waiting for the loop made `tst ls` and the vault pause
+	// half a second per idle session.
+	panes := 0
+	if s.started.Load() {
+		ch := make(chan int, 1)
+		select {
+		case s.post <- func() { ch <- s.m.PaneCount() }:
+		default:
+		}
+		panes = -1
+		select {
+		case panes = <-ch:
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
-	panes := -1
-	select {
-	case panes = <-ch:
-	case <-time.After(500 * time.Millisecond):
-	}
-	b, _ := json.Marshal(Info{Name: s.name, Panes: panes, Attached: s.current() != nil, PID: os.Getpid()})
+	b, _ := json.Marshal(Info{Name: s.name, Panes: panes, Attached: s.current() != nil, PID: os.Getpid(), Started: s.startedAt})
 	_ = writeFrame(conn, MsgInfoResp, b)
 }
 
@@ -174,6 +194,9 @@ func (s *Server) attach(conn net.Conn, sz Size) {
 		}
 		s.m.SetAttached(true)
 		s.m.SetSize(sz.Cols, sz.Rows)
+		if sz.Pane != 0 {
+			_ = s.m.FocusPaneID(sz.Pane)
+		}
 		s.m.QueryHostColors()
 	}
 	asm := input.NewAssembler(func(ks []input.Key) { s.keys <- ks })
@@ -208,9 +231,11 @@ func (s *Server) acceptLoop() {
 }
 
 // Serve runs a session server in the foreground until the session ends.
-// The first pane is created when the first client attaches (its terminal
-// size is needed to lay panes out).
-func Serve(cfg *config.Config, name string) error {
+func Serve(cfg *config.Config, name string) error { return ServeWith(cfg, name, "") }
+
+// ServeWith is Serve with the path of the config file in use, so the vault
+// opened from a pane reads the same configuration.
+func ServeWith(cfg *config.Config, name, cfgPath string) error {
 	if !ValidName(name) {
 		return fmt.Errorf("invalid session name %q", name)
 	}
@@ -229,17 +254,20 @@ func Serve(cfg *config.Config, name string) error {
 	defer ln.Close()
 
 	s := &Server{
-		name:  name,
-		ln:    ln,
-		keys:  make(chan []input.Key, 1024),
-		post:  make(chan func(), 64),
-		first: make(chan Size, 1),
-		stop:  make(chan struct{}),
+		name:      name,
+		startedAt: time.Now().UnixNano(),
+		ln:        ln,
+		keys:      make(chan []input.Key, 1024),
+		post:      make(chan func(), 64),
+		first:     make(chan Size, 1),
+		stop:      make(chan struct{}),
 	}
 	s.setup, s.teardown = cfg.TermModes()
 	s.m = mux.New(cfg, bufio.NewWriterSize(clientWriter{s}, 1<<16))
 	s.m.OnDetach = s.detachCurrent
+	s.m.OnSwitch = s.switchClient
 	s.m.SetSessionName(name)
+	s.m.SetVaultCommand(mux.VaultCommandLine(cfgPath))
 
 	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
 	term := make(chan os.Signal, 1)

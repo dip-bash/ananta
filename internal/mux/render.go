@@ -95,6 +95,8 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 	bc, tc, ta := m.th.border, m.th.title, uint8(0)
 	if focused {
 		bc, tc, ta = m.th.focusBorder, m.th.focusTitle, screen.AttrBold
+	} else if p.Marked {
+		bc = m.th.markedBorder
 	}
 	m.drawBox(scr, x, y, w, h, bc, screen.ColDefault)
 

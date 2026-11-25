@@ -25,7 +25,9 @@ const controlUsage = `
 	  tst open "tail -f /var/log/syslog" --below
 	  tst open "make watch" -k               keep keyboard focus on the current pane
 	  tst open "htop" --focus -n 3           also switch the view to workspace 3
+	  tst open "vault" -w 40%                open the vault UI in a new pane
 	  tst open                               open a new shell
+	  tst action mark | unmark | vault       save / remove the focused pane, open the vault
 	  tst workspace 3                       switch the view to workspace 3
 	  tst focus left|right|up|down           move focus
 	  tst width 50%                          set the focused column's width
