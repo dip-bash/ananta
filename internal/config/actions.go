@@ -47,6 +47,7 @@ var ActionInfo = []struct{ Name, Desc string }{
 	{"detach", "Detach (session keeps running)"},
 	{"toggle_bar", "Show / hide status bar"},
 	{"help", "Toggle this help"},
+	{"exec", "Run a shell command"},
 	{"quit", "Quit"},
 }
 

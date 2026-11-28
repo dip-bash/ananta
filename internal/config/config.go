@@ -177,9 +177,14 @@ func (cfg *Config) compile() {
 			if len(parts) == 2 {
 				a.Arg = strings.TrimSpace(parts[1])
 			}
-			if ActionIndex(a.Name) == len(ActionInfo) {
-				cfg.warn("unknown action: %s", a.Name)
+			if a.Name == "exec" && a.Arg == "" {
+				cfg.warn("exec needs a command: %s", chord)
 				continue
+			}
+			if ActionIndex(a.Name) == len(ActionInfo) {
+				// not an action name: the whole value is a shell command,
+				// e.g. "tst open 'tst vault' -w 25%"
+				a = Action{Name: "exec", Arg: spec}
 			}
 			dst[name] = a
 		}
@@ -198,6 +203,12 @@ func (cfg *Config) compile() {
 	}
 	if cfg.DefaultColumnWidth <= 0 || cfg.DefaultColumnWidth > 1 {
 		cfg.DefaultColumnWidth = 0.5
+	}
+	if cfg.AnimationSpeed <= 0 {
+		cfg.AnimationSpeed = 18 // a non-positive speed makes the easing stall or diverge
+	}
+	if cfg.ResizeStep <= 0 {
+		cfg.ResizeStep = 0.05
 	}
 	if cfg.ScrollbackLines < 0 {
 		cfg.ScrollbackLines = 0

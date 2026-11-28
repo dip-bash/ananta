@@ -61,7 +61,7 @@ func New(o Options, dirty chan<- struct{}, exits chan<- *Pane, clip chan<- strin
 	cols, rows := max(o.Cols, 1), max(o.Rows, 1)
 	var cmd *exec.Cmd
 	var name string
-	if o.Cmdline == "" {
+	if strings.TrimSpace(o.Cmdline) == "" {
 		shell := o.Shell
 		if shell == "" {
 			shell = os.Getenv("SHELL")

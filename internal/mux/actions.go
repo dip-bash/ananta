@@ -106,7 +106,7 @@ func (m *Mux) run(a config.Action) {
 			if col.WFrac < 0.999 {
 				col.SavedFrac, col.WFrac = col.WFrac, 1
 			} else if col.SavedFrac > 0 {
-				col.WFrac = col.SavedFrac
+				col.WFrac, col.SavedFrac = col.SavedFrac, 0
 			} else {
 				col.WFrac = m.cfg.DefaultColumnWidth
 			}
@@ -157,6 +157,8 @@ func (m *Mux) run(a config.Action) {
 	case "help":
 		m.showHelp = !m.showHelp
 		m.helpScroll = 0
+	case "exec":
+		m.runShell(a.Arg)
 	case "quit":
 		if m.markedCount() > 0 {
 			m.notify("pane is marked")

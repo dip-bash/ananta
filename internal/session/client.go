@@ -235,7 +235,12 @@ func List() ([]Info, error) {
 			out = append(out, in)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Started != out[j].Started {
+			return out[i].Started < out[j].Started // creation order, as Info documents
+		}
+		return out[i].Name < out[j].Name
+	})
 	return out, nil
 }
 

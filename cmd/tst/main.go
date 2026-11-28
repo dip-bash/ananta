@@ -118,7 +118,7 @@ func main() {
 	case "init":
 		err = writeDefault(cfgPath)
 	case "print-version":
-		fmt.Printf("T-Strip Version: %s", version)
+		fmt.Printf("T-Strip Version: %s\n", version)
 	case "help":
 		fmt.Print(usage, "\n", controlUsage)
 	case "ls":

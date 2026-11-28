@@ -50,7 +50,12 @@ func paneHeight(total, n, i int) int {
 
 // ---- structure
 
-func removeAt[T any](s []T, i int) []T { return append(s[:i], s[i+1:]...) }
+func removeAt[T any](s []T, i int) []T {
+	copy(s[i:], s[i+1:])
+	var zero T
+	s[len(s)-1] = zero // don't keep the removed element alive in the backing array
+	return s[:len(s)-1]
+}
 
 // detachAt removes a pane from its column (dropping the column when it
 // empties) and fixes focus indices. The pane itself is not closed.
