@@ -232,7 +232,7 @@ func (m *Mux) cmEnsureVisible() {
 
 func (m *Mux) copyKey(k input.Key) {
 	cm := m.cm
-	if cm.P.Dead {
+	if cm.P.IsDead() {
 		m.cm = nil
 		return
 	}

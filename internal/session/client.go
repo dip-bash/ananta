@@ -39,7 +39,7 @@ func EnsureServer(name, cfgPath string) error {
 	if Exists(name) {
 		return nil
 	}
-	_ = os.Remove(SockPath(name)) // stale socket from a crashed server
+	// a stale socket is removed by the server itself, under its lock
 	exe, err := os.Executable()
 	if err != nil {
 		return err

@@ -61,6 +61,17 @@ func newGrid(p *pane.Pane) *grid {
 	return &grid{p: p, v: v, cols: max(1, v.cols), total: v.total(), cache: map[int][]rune{}}
 }
 
+// wrapped reports whether row y was soft-wrapped into row y+1 by the program.
+func (g *grid) wrapped(y int) bool {
+	if y < 0 || y >= g.total-1 {
+		return false
+	}
+	g.p.Term.Lock()
+	defer g.p.Term.Unlock()
+	line := g.p.Term.Row(g.v.vtRow(y))
+	return len(line) > 0 && line[len(line)-1].Mode&vt.GlyphWrap != 0
+}
+
 func (g *grid) row(y int) []rune {
 	y = max(0, min(g.total-1, y))
 	if r, ok := g.cache[y]; ok {
@@ -90,7 +101,7 @@ func (m *Mux) extract(s *Selection) string {
 	g := newGrid(s.P)
 	sx, sy, ex, ey := s.ordered()
 	sy, ey = max(0, sy), min(g.total-1, ey)
-	var lines []string
+	var sb strings.Builder
 	for y := sy; y <= ey; y++ {
 		a, b := 0, g.cols-1
 		switch s.Kind {
@@ -107,16 +118,25 @@ func (m *Mux) extract(s *Selection) string {
 		a, b = max(0, a), min(g.cols-1, b)
 		line := ""
 		if a <= b {
-			line = strings.TrimRight(strings.Map(func(r rune) rune {
+			line = strings.Map(func(r rune) rune {
 				if r == 0 {
 					return -1 // continuation cell of a wide character
 				}
 				return r
-			}, string(g.row(y)[a:b+1])), " ")
+			}, string(g.row(y)[a:b+1]))
 		}
-		lines = append(lines, line)
+		// a row the program soft-wrapped continues on the next one: join them
+		// without a newline and keep the spaces at the wrap point
+		joined := s.Kind == 'c' && y < ey && b == g.cols-1 && g.wrapped(y)
+		if !joined {
+			line = strings.TrimRight(line, " ")
+		}
+		sb.WriteString(line)
+		if y < ey && !joined {
+			sb.WriteByte('\n')
+		}
 	}
-	return strings.Join(lines, "\n")
+	return sb.String()
 }
 
 // copyText puts text on the clipboard (OSC 52 + native tool) and remembers it

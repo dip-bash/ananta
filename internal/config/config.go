@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -95,6 +96,9 @@ type Config struct {
 	Keys               map[string]string `toml:"keys"`
 	PrefixKeys         map[string]string `toml:"prefix_keys"`
 
+	// the built-in bindings, so a user binding of the same key overrides them
+	defKeys, defPrefixKeys map[string]string
+
 	// compiled
 	LeaderMask int
 	Keymap     map[string]Action
@@ -135,6 +139,7 @@ func Load(path string) (*Config, error) {
 	if _, err := toml.Decode(Default, cfg); err != nil {
 		return nil, fmt.Errorf("built-in config: %w", err)
 	}
+	cfg.defKeys, cfg.defPrefixKeys = cloneMap(cfg.Keys), cloneMap(cfg.PrefixKeys)
 	if path != "" {
 		if _, err := os.Stat(path); err == nil {
 			if _, err := toml.DecodeFile(path, cfg); err != nil {
@@ -151,6 +156,14 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
+func cloneMap(m map[string]string) map[string]string {
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
 func (cfg *Config) warn(format string, a ...any) {
 	cfg.Warnings = append(cfg.Warnings, fmt.Sprintf(format, a...))
 }
@@ -164,9 +177,28 @@ func (cfg *Config) compile() {
 	cfg.Leader = input.MaskName(cfg.LeaderMask)
 
 	cfg.Keymap, cfg.PrefixMap = map[string]Action{}, map[string]Action{}
-	compile := func(src map[string]string, dst map[string]Action) {
-		for chord, spec := range src {
+	compile := func(src, defs map[string]string, dst map[string]Action) {
+		// Deterministic order: built-in bindings first, then the user's, each
+		// sorted, so a user binding always overrides a default for the same key.
+		isDef := func(chord string) bool { v, ok := defs[chord]; return ok && v == src[chord] }
+		chords := make([]string, 0, len(src))
+		for chord := range src {
+			chords = append(chords, chord)
+		}
+		sort.Slice(chords, func(i, j int) bool {
+			if di, dj := isDef(chords[i]), isDef(chords[j]); di != dj {
+				return di
+			}
+			return chords[i] < chords[j]
+		})
+		from := map[string]string{}
+		for _, chord := range chords {
+			spec := src[chord]
 			name := input.NormalizeChord(chord, cfg.LeaderMask)
+			if prev, dup := from[name]; dup && !isDef(chord) && !isDef(prev) {
+				cfg.warn("%s and %s are the same key; %s wins", prev, chord, chord)
+			}
+			from[name] = chord
 			spec = strings.TrimSpace(spec)
 			if spec == "" || spec == "none" || spec == "unbind" {
 				delete(dst, name)
@@ -189,8 +221,8 @@ func (cfg *Config) compile() {
 			dst[name] = a
 		}
 	}
-	compile(cfg.Keys, cfg.Keymap)
-	compile(cfg.PrefixKeys, cfg.PrefixMap)
+	compile(cfg.Keys, cfg.defKeys, cfg.Keymap)
+	compile(cfg.PrefixKeys, cfg.defPrefixKeys, cfg.PrefixMap)
 	if cfg.Prefix != "" {
 		cfg.PrefixKey = input.NormalizeChord(cfg.Prefix, cfg.LeaderMask)
 	}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -23,7 +24,7 @@ type Pane struct {
 	PTY        *os.File
 	Term       vt.Terminal
 	Cols, Rows int
-	Dead       bool
+	dead       atomic.Bool // set by Close; read from the PTY goroutine too
 
 	// Vault state, owned by the mux.
 	Marked  bool
@@ -36,8 +37,9 @@ type Pane struct {
 	// Viewport into scrollback, managed by the mux. When Anchored, the pane
 	// shows history starting at logical row Top instead of following the
 	// live screen.
-	Anchored bool
-	Top      int
+	Anchored  bool
+	Top       int
+	SBDropped int // history lines the emulator had dropped when the mux last looked
 
 	wmu        sync.Mutex // serialises writes to the PTY (keys vs emulator replies)
 	noDeadline bool       // PTY fd can't do write deadlines; use the fallback
@@ -134,7 +136,7 @@ func New(o Options, dirty chan<- struct{}, exits chan<- *Pane, clip chan<- strin
 
 func (p *Pane) Resize(cols, rows int) {
 	cols, rows = max(cols, 1), max(rows, 1)
-	if p.Dead || (cols == p.Cols && rows == p.Rows) {
+	if p.IsDead() || (cols == p.Cols && rows == p.Rows) {
 		return
 	}
 	p.Cols, p.Rows = cols, rows
@@ -142,11 +144,13 @@ func (p *Pane) Resize(cols, rows int) {
 	p.Term.Resize(cols, rows)
 }
 
+// IsDead reports whether the pane has been closed.
+func (p *Pane) IsDead() bool { return p.dead.Load() }
+
 func (p *Pane) Close() {
-	if p.Dead {
+	if p.dead.Swap(true) {
 		return
 	}
-	p.Dead = true
 	_ = p.PTY.Close()
 	if p.Cmd.Process != nil {
 		_ = p.Cmd.Process.Signal(syscall.SIGHUP)
@@ -195,7 +199,7 @@ func (p *Pane) writeBounded(b []byte, limit time.Duration) (int, error) {
 
 // Write sends keyboard / paste input to the child.
 func (p *Pane) Write(b []byte) (int, error) {
-	if p.Dead {
+	if p.IsDead() {
 		return 0, os.ErrClosed
 	}
 	return p.writeBounded(b, 250*time.Millisecond)
@@ -205,7 +209,7 @@ func (p *Pane) Write(b []byte) (int, error) {
 type replyWriter struct{ p *Pane }
 
 func (w replyWriter) Write(b []byte) (int, error) {
-	if w.p.Dead {
+	if w.p.IsDead() {
 		return len(b), nil
 	}
 	return w.p.writeBounded(b, 100*time.Millisecond)

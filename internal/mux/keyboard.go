@@ -82,10 +82,11 @@ func (m *Mux) overviewKey(k input.Key) bool {
 }
 
 func (m *Mux) handleKeys(ks []input.Key) {
+	m.syncAllScrollback()
 	var pending []byte
 	flush := func() {
 		if len(pending) > 0 {
-			if p := m.focusedPane(); p != nil && !p.Dead {
+			if p := m.focusedPane(); p != nil && !p.IsDead() {
 				p.Anchored = false // typing returns to the live screen
 				_, _ = p.Write(pending)
 			}

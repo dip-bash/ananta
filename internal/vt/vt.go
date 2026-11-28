@@ -60,6 +60,10 @@ type View interface {
 	// ScrollbackLen returns the number of history lines (hold Lock).
 	ScrollbackLen() int
 
+	// ScrollbackDropped is how many history lines have ever been discarded
+	// from the oldest end (limit reached or cleared); it only grows (hold Lock).
+	ScrollbackDropped() int
+
 	// Row returns row abs of history+screen (hold Lock); may be short or nil.
 	Row(abs int) []Glyph
 

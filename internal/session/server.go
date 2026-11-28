@@ -239,6 +239,15 @@ func ServeWith(cfg *config.Config, name, cfgPath string) error {
 	if !ValidName(name) {
 		return fmt.Errorf("invalid session name %q", name)
 	}
+	lf, err := os.OpenFile(LockPath(name), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		lf.Close()
+		return fmt.Errorf("session %q is already running", name)
+	}
+	defer lf.Close() // the lock lives as long as this server
 	path := SockPath(name)
 	if c, err := net.Dial("unix", path); err == nil {
 		c.Close()

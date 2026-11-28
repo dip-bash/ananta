@@ -72,6 +72,39 @@ func (m *Mux) scrollBack(p *pane.Pane, n int) {
 	setTop(p, viewTop(p, v)-n, v)
 }
 
+// syncScrollback keeps positions stored as logical rows (anchored view, copy
+// cursor, selection) on the same text after the emulator dropped its oldest
+// history lines.
+func (m *Mux) syncScrollback(p *pane.Pane) {
+	p.Term.Lock()
+	dropped := p.Term.ScrollbackDropped()
+	p.Term.Unlock()
+	d := dropped - p.SBDropped
+	if d <= 0 {
+		return
+	}
+	p.SBDropped = dropped
+	if p.Anchored {
+		p.Top = max(0, p.Top-d)
+	}
+	if m.cm != nil && m.cm.P == p {
+		m.cm.Y, m.cm.AY = max(0, m.cm.Y-d), max(0, m.cm.AY-d)
+	}
+	if m.sel != nil && m.sel.P == p {
+		m.sel.AY, m.sel.CY = max(0, m.sel.AY-d), max(0, m.sel.CY-d)
+	}
+}
+
+func (m *Mux) syncAllScrollback() {
+	for _, ws := range m.ws {
+		for _, c := range ws.Cols {
+			for _, p := range c.Panes {
+				m.syncScrollback(p)
+			}
+		}
+	}
+}
+
 // linesAbove reports how far the viewport is scrolled back (0 = live).
 func linesAbove(p *pane.Pane) int {
 	if !p.Anchored {

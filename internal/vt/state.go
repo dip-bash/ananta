@@ -35,6 +35,7 @@ const (
 	GlyphStrike    = attrStrike
 	GlyphWide      = attrWide
 	GlyphCont      = attrWDummy
+	GlyphWrap      = attrWrap // last cell of a row the program soft-wrapped
 )
 
 const (
@@ -108,6 +109,7 @@ type State struct {
 	altLines       []line
 	sb             []line // scrollback: lines that scrolled off the top of the primary screen
 	sbMax          int
+	sbDropped      int // history lines discarded so far (see ScrollbackDropped)
 	cursorStyle    int      // DECSCUSR: 0 default, 1-2 block, 3-4 underline, 5-6 bar (odd = blinking)
 	hostFG, hostBG [3]uint8 // the user's terminal colours, reported to programs that ask
 	haveHost       bool
@@ -817,6 +819,7 @@ func (t *State) String() string {
 func (t *State) SetScrollbackLimit(n int) {
 	t.sbMax = max(0, n)
 	if len(t.sb) > t.sbMax {
+		t.sbDropped += len(t.sb) - t.sbMax
 		t.sb = append([]line(nil), t.sb[len(t.sb)-t.sbMax:]...)
 	}
 }
@@ -825,7 +828,14 @@ func (t *State) SetScrollbackLimit(n int) {
 func (t *State) ScrollbackLen() int { return len(t.sb) }
 
 // ClearScrollback drops all history.
-func (t *State) ClearScrollback() { t.sb = nil }
+func (t *State) ClearScrollback() {
+	t.sbDropped += len(t.sb)
+	t.sb = nil
+}
+
+// ScrollbackDropped returns how many history lines have been discarded from
+// the oldest end so far. Caller holds Lock.
+func (t *State) ScrollbackDropped() int { return t.sbDropped }
 
 // Row returns row abs of the combined buffer: history lines first (oldest
 // at 0), then the live screen. Rows may be shorter than the screen width
@@ -850,7 +860,7 @@ func (t *State) pushHistory(lines []line) {
 		end := len(l)
 		for end > 0 {
 			g := l[end-1]
-			if (g.Char == 0 || g.Char == ' ') && g.BG == DefaultBG && g.Mode&attrReverse == 0 {
+			if (g.Char == 0 || g.Char == ' ') && g.BG == DefaultBG && g.Mode&(attrReverse|attrWrap) == 0 {
 				end--
 				continue
 			}
@@ -859,6 +869,7 @@ func (t *State) pushHistory(lines []line) {
 		t.sb = append(t.sb, append(line(nil), l[:end]...))
 	}
 	if over := len(t.sb) - t.sbMax; over > 0 {
+		t.sbDropped += over
 		// drop the oldest; copy occasionally so the backing array is released
 		t.sb = t.sb[over:]
 		if cap(t.sb) > 2*t.sbMax+1024 {

@@ -442,6 +442,7 @@ func parseKeys(buf []byte, partial bool) (out []Key, rest []byte) {
 type Assembler struct {
 	out func([]Key)
 
+	omu    sync.Mutex // keeps deliveries in order (Feed vs. the idle-timer flush)
 	mu     sync.Mutex
 	carry  []byte
 	gen    int
@@ -486,9 +487,13 @@ func (a *Assembler) Feed(data []byte) {
 		}
 		a.timer = time.AfterFunc(delay, func() { a.flush(gen) })
 	}
+	if len(keys) > 0 {
+		a.omu.Lock() // taken before mu is released: later input queues behind these keys
+	}
 	a.mu.Unlock()
 	if len(keys) > 0 {
 		a.out(keys)
+		a.omu.Unlock()
 	}
 }
 
@@ -500,9 +505,13 @@ func (a *Assembler) flush(gen int) {
 	}
 	keys, _ := parseKeys(a.carry, false)
 	a.carry = nil
+	if len(keys) > 0 {
+		a.omu.Lock()
+	}
 	a.mu.Unlock()
 	if len(keys) > 0 {
 		a.out(keys)
+		a.omu.Unlock()
 	}
 }
 

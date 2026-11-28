@@ -178,6 +178,7 @@ func (m *Mux) drawPane(scr *screen.Screen, p *pane.Pane, x, y, w, h int, focused
 }
 
 func (m *Mux) render() {
+	m.syncAllScrollback()
 	m.syncSizes()
 	scr := m.rend.Cur()
 	scr.Clear()

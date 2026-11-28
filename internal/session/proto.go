@@ -106,3 +106,7 @@ func Dir() string {
 
 func SockPath(name string) string { return filepath.Join(Dir(), name+".sock") }
 func LogPath(name string) string  { return filepath.Join(Dir(), name+".log") }
+
+// LockPath is the file a running server holds an exclusive flock on, so two
+// servers for the same session can never start together.
+func LockPath(name string) string { return filepath.Join(Dir(), name+".lock") }
